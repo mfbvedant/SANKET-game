@@ -1,0 +1,338 @@
+/* ═══════════════════════════════════════════════════════════
+   SURVIVOR ZONE — Main Stylesheet
+   ═══════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=Orbitron:wght@500;700;900&display=swap');
+
+/* ── CSS Variables ────────────────────────────────────────── */
+:root {
+    --bg-dark: #0a0e17;
+    --bg-panel: rgba(12, 18, 32, 0.92);
+    --bg-panel-hover: rgba(18, 28, 50, 0.95);
+    --accent-primary: #00e5ff;
+    --accent-secondary: #7c4dff;
+    --accent-danger: #ff1744;
+    --accent-success: #00e676;
+    --accent-warning: #ffab00;
+    --text-primary: #e8eaf6;
+    --text-secondary: #90a4ae;
+    --text-muted: #546e7a;
+    --border-glow: rgba(0, 229, 255, 0.3);
+    --shadow-glow: 0 0 30px rgba(0, 229, 255, 0.15);
+    --font-display: 'Orbitron', sans-serif;
+    --font-body: 'Inter', sans-serif;
+    --radius: 8px;
+    --radius-lg: 16px;
+}
+
+/* ── Reset & Base ─────────────────────────────────────────── */
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    overflow: hidden;
+    background: var(--bg-dark);
+    font-family: var(--font-body);
+    color: var(--text-primary);
+    cursor: crosshair;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+}
+
+/* ── Overlay Screens ──────────────────────────────────────── */
+.overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(6, 8, 14, 0.88);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 100;
+    animation: fadeIn 0.4s ease;
+}
+
+.overlay.hidden {
+    display: none;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* ── Menu Container ───────────────────────────────────────── */
+.menu-container {
+    text-align: center;
+    padding: 48px 56px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-glow);
+    background: var(--bg-panel);
+    box-shadow: var(--shadow-glow);
+    max-width: 520px;
+    width: 90%;
+    position: relative;
+    animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Main Menu Hero Character ───────────────────────────── */
+.menu-hero-art {
+    position: absolute;
+    left: 5%;
+    bottom: 0;
+    height: 85vh;
+    pointer-events: none;
+    z-index: 101;
+    display: flex;
+    align-items: flex-end;
+    filter: drop-shadow(0 0 35px rgba(0, 229, 255, 0.35));
+}
+
+.hero-character-img {
+    height: 100%;
+    max-height: 720px;
+    object-fit: contain;
+    animation: heroFloat 4s ease-in-out infinite alternate;
+}
+
+@keyframes heroFloat {
+    from { transform: translateY(0px); }
+    to { transform: translateY(-12px); }
+}
+
+@media (max-width: 1100px) {
+    .menu-hero-art {
+        display: none;
+    }
+}
+
+/* ── Logo Glow Effect ─────────────────────────────────────── */
+.logo-glow {
+    position: absolute;
+    top: -60px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, rgba(0, 229, 255, 0.15) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+/* ── Title ────────────────────────────────────────────────── */
+.game-title {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: 3rem;
+    letter-spacing: 6px;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+    text-shadow: 0 0 40px rgba(0, 229, 255, 0.3);
+}
+
+.title-accent {
+    color: var(--accent-primary);
+}
+
+.game-subtitle {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 0.85rem;
+    letter-spacing: 8px;
+    color: var(--text-secondary);
+    margin-bottom: 40px;
+}
+
+.section-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.6rem;
+    letter-spacing: 4px;
+    color: var(--accent-primary);
+    margin-bottom: 28px;
+    text-shadow: 0 0 20px rgba(0, 229, 255, 0.25);
+}
+
+/* ── Buttons ──────────────────────────────────────────────── */
+.menu-buttons, .results-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 8px;
+}
+
+.menu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 14px 28px;
+    border: none;
+    border-radius: var(--radius);
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.95rem;
+    letter-spacing: 3px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.menu-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 50%);
+    pointer-events: none;
+}
+
+.primary-btn {
+    background: linear-gradient(135deg, var(--accent-primary), #0097a7);
+    color: #000;
+    box-shadow: 0 4px 20px rgba(0, 229, 255, 0.3);
+}
+
+.primary-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 30px rgba(0, 229, 255, 0.45);
+}
+
+.primary-btn:active {
+    transform: translateY(0);
+}
+
+.secondary-btn {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.secondary-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: var(--accent-primary);
+    transform: translateY(-2px);
+}
+
+.btn-icon {
+    font-size: 1.1em;
+}
+
+/* ── Menu Footer ──────────────────────────────────────────── */
+.menu-footer {
+    margin-top: 32px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.menu-footer p {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    letter-spacing: 1.5px;
+    line-height: 1.6;
+}
+
+/* ── Controls Grid (How To Play) ──────────────────────────── */
+.controls-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.control-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: var(--radius);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.control-item kbd {
+    font-family: var(--font-display);
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--accent-primary);
+    background: rgba(0, 229, 255, 0.08);
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 229, 255, 0.2);
+    min-width: 72px;
+    text-align: center;
+    letter-spacing: 1px;
+}
+
+.control-item span {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+}
+
+.how-to-text {
+    margin-bottom: 24px;
+}
+
+.how-to-text p {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.7;
+}
+
+.how-to-container {
+    max-width: 580px;
+}
+
+/* ── Results Screen ───────────────────────────────────────── */
+.results-stats {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    margin-bottom: 32px;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.stat-label {
+    font-family: var(--font-display);
+    font-size: 0.65rem;
+    font-weight: 500;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+}
+
+.stat-value {
+    font-family: var(--font-display);
+    font-size: 1.8rem;
+    font-weight: 900;
+    color: var(--accent-primary);
+    text-shadow: 0 0 15px rgba(0, 229, 255, 0.3);
+}
+
+.results-container .section-title {
+    font-size: 2rem;
+}
+
+/* ── Scrollbar ────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--accent-primary); border-radius: 3px; }

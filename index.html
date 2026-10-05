@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Survivor Zone - A 2D top-down battle royale game. Drop in, loot up, and be the last one standing.">
+    <title>Survivor Zone — Last One Standing</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Main Menu Overlay -->
+    <div id="mainMenu" class="overlay">
+        <div class="menu-hero-art">
+            <img src="pictures/Tactical Operative with Orange Scarf.png" alt="Tactical Operative" class="hero-character-img">
+        </div>
+        <div class="menu-container">
+            <div class="logo-glow"></div>
+            <h1 class="game-title">SURVIVOR<span class="title-accent">ZONE</span></h1>
+            <p class="game-subtitle">LAST ONE STANDING</p>
+            <div class="menu-buttons">
+                <button id="btnPlay" class="menu-btn primary-btn">
+                    <span class="btn-icon">▶</span> DROP IN
+                </button>
+                <button id="btnHowTo" class="menu-btn secondary-btn">
+                    <span class="btn-icon">?</span> HOW TO PLAY
+                </button>
+            </div>
+            <div class="menu-footer">
+                <p>WASD Move · Mouse Aim · Click Shoot · R Reload · E Pickup · Tab Inventory</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- How To Play Overlay -->
+    <div id="howToPlay" class="overlay hidden">
+        <div class="menu-container how-to-container">
+            <h2 class="section-title">HOW TO PLAY</h2>
+            <div class="controls-grid">
+                <div class="control-item"><kbd>W A S D</kbd><span>Move</span></div>
+                <div class="control-item"><kbd>Mouse</kbd><span>Aim</span></div>
+                <div class="control-item"><kbd>Left Click</kbd><span>Shoot</span></div>
+                <div class="control-item"><kbd>R</kbd><span>Reload</span></div>
+                <div class="control-item"><kbd>E</kbd><span>Pick Up Items</span></div>
+                <div class="control-item"><kbd>1 2 3</kbd><span>Switch Weapon</span></div>
+                <div class="control-item"><kbd>Tab</kbd><span>Inventory</span></div>
+                <div class="control-item"><kbd>4 5</kbd><span>Use Heal/Armor</span></div>
+            </div>
+            <div class="how-to-text">
+                <p>You are dropped into a hostile zone with 29 other fighters. Scavenge for weapons, ammo, and supplies. A deadly energy field closes in — stay inside the safe zone or take damage. Eliminate opponents and be the last one standing to win.</p>
+            </div>
+            <button id="btnBackMenu" class="menu-btn secondary-btn">← BACK</button>
+        </div>
+    </div>
+
+    <!-- Results Overlay -->
+    <div id="resultsScreen" class="overlay hidden">
+        <div class="menu-container results-container">
+            <h2 id="resultTitle" class="section-title">ELIMINATED</h2>
+            <div class="results-stats">
+                <div class="stat-item">
+                    <span class="stat-label">PLACEMENT</span>
+                    <span id="resultPlacement" class="stat-value">#1</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">KILLS</span>
+                    <span id="resultKills" class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">SURVIVAL TIME</span>
+                    <span id="resultTime" class="stat-value">0:00</span>
+                </div>
+            </div>
+            <div class="results-buttons">
+                <button id="btnPlayAgain" class="menu-btn primary-btn">
+                    <span class="btn-icon">↻</span> PLAY AGAIN
+                </button>
+                <button id="btnMainMenu" class="menu-btn secondary-btn">
+                    <span class="btn-icon">⌂</span> MAIN MENU
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Scripts - loaded in order -->
+    <script src="js/assets.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/constants.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/weapons.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/camera.js"></script>
+    <script src="js/projectiles.js"></script>
+    <script src="js/loot.js"></script>
+    <script src="js/health.js"></script>
+    <script src="js/inventory.js"></script>
+    <script src="js/vfx.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/enemy.js"></script>
+    <script src="js/safezone.js"></script>
+    <script src="js/hud.js"></script>
+    <script src="js/minimap.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html>
