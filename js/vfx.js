@@ -1,225 +1,1049 @@
 /* ═══════════════════════════════════════════════════════════
-   SURVIVOR ZONE — Visual Effects System
-   Manages particles, muzzle flashes, damage indicators,
-   and the kill feed.
-   ═══════════════════════════════════════════════════════════ */
+  SURVIVOR ZONE — Visual Effects System
+
+  Particles, hit effects, muzzle flashes, elimination effects,
+  pickup effects, damage numbers and kill feed.
+  ═══════════════════════════════════════════════════════════ */
 
 const VFXSystem = {
+
+    // ─────────────────────────────────────────────
+    // STORAGE
+    // ─────────────────────────────────────────────
+
     particles: [],
+
     damageNumbers: [],
+
     killFeed: [],
+
     maxKillFeedEntries: 5,
-    killFeedDuration: 4000, // ms
+
+    killFeedDuration: 4000,
+
+    // Maximum particles prevents accidental
+    // performance problems during large fights.
+    maxParticles: 700,
+
+    // ─────────────────────────────────────────────
+    // RESET
+    // ─────────────────────────────────────────────
 
     reset() {
+
         this.particles = [];
+
         this.damageNumbers = [];
+
         this.killFeed = [];
     },
 
-    // ── Particles ──────────────────────────────────────────────
+    // ═════════════════════════════════════════════
+    // PARTICLES
+    // ═════════════════════════════════════════════
 
     /**
-     * Spawn a burst of particles at position.
+     * Spawn a burst of particles at a position.
      */
-    spawnBurst(x, y, count, color, speed, life) {
-        for (let i = 0; i < count; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const spd = Utils.randFloat(speed * 0.5, speed);
+    spawnBurst(
+        x,
+        y,
+        count,
+        color,
+        speed,
+        life
+    ) {
+
+        // Don't exceed particle limit
+        const available =
+            this.maxParticles -
+            this.particles.length;
+
+        count =
+            Math.min(
+                count,
+                Math.max(0, available)
+            );
+
+        for (
+            let i = 0;
+            i < count;
+            i++
+        ) {
+
+            const angle =
+                Math.random() *
+                Math.PI *
+                2;
+
+            const spd =
+                Utils.randFloat(
+                    speed * 0.5,
+                    speed
+                );
+
             this.particles.push({
-                x, y,
-                vx: Math.cos(angle) * spd,
-                vy: Math.sin(angle) * spd,
-                life: Utils.randFloat(life * 0.6, life),
-                maxLife: life,
+
+                x,
+                y,
+
+                vx:
+                    Math.cos(angle) *
+                    spd,
+
+                vy:
+                    Math.sin(angle) *
+                    spd,
+
+                life:
+                    Utils.randFloat(
+                        life * 0.6,
+                        life
+                    ),
+
+                maxLife:
+                    life,
+
                 color,
-                radius: Utils.randFloat(1.5, 3.5),
+
+                radius:
+                    Utils.randFloat(
+                        1.5,
+                        3.5
+                    ),
+
+                gravity:
+                    Utils.randFloat(
+                        0,
+                        25
+                    ),
+
+                friction:
+                    Utils.randFloat(
+                        0.90,
+                        0.97
+                    ),
+
+                type: 'normal'
             });
         }
     },
+
+    // ─────────────────────────────────────────────
+    // HIT EFFECT
+    // ─────────────────────────────────────────────
 
     /**
      * Spawn blood/hit effect.
      */
     spawnHitEffect(x, y) {
-        this.spawnBurst(x, y, 6, '#ff5252', 120, 0.3);
+
+        // Main red particles
+        this.spawnBurst(
+            x,
+            y,
+            7,
+            '#ff5252',
+            130,
+            0.32
+        );
+
+        // Small bright particles
+        this.spawnBurst(
+            x,
+            y,
+            3,
+            '#ff8a80',
+            80,
+            0.20
+        );
     },
 
+    // ─────────────────────────────────────────────
+    // WALL IMPACT
+    // ─────────────────────────────────────────────
+
     /**
-     * Spawn bullet impact on wall.
+     * Spawn bullet impact on a wall.
      */
     spawnWallHit(x, y) {
-        this.spawnBurst(x, y, 4, '#aaa', 80, 0.2);
-    },
 
-    /**
-     * Spawn muzzle flash.
-     */
-    spawnMuzzleFlash(x, y, angle) {
+        this.spawnBurst(
+            x,
+            y,
+            5,
+            '#aaa',
+            90,
+            0.22
+        );
+
+        // Bright impact spark
         this.particles.push({
-            x: x + Math.cos(angle) * 22,
-            y: y + Math.sin(angle) * 22,
-            vx: Math.cos(angle) * 40,
-            vy: Math.sin(angle) * 40,
-            life: 0.06,
-            maxLife: 0.06,
-            color: '#ffe082',
-            radius: 5,
+
+            x,
+            y,
+
+            vx:
+                Utils.randFloat(
+                    -30,
+                    30
+                ),
+
+            vy:
+                Utils.randFloat(
+                    -30,
+                    30
+                ),
+
+            life: 0.12,
+
+            maxLife: 0.12,
+
+            color: '#ffffff',
+
+            radius: 2.5,
+
+            gravity: 0,
+
+            friction: 0.9,
+
+            type: 'spark'
         });
     },
+
+    // ─────────────────────────────────────────────
+    // MUZZLE FLASH
+    // ─────────────────────────────────────────────
+
+    /**
+     * Spawn directional muzzle flash.
+     */
+    spawnMuzzleFlash(
+        x,
+        y,
+        angle
+    ) {
+
+        const muzzleDistance = 22;
+
+        const mx =
+            x +
+            Math.cos(angle) *
+            muzzleDistance;
+
+        const my =
+            y +
+            Math.sin(angle) *
+            muzzleDistance;
+
+        // Main flash
+        this.particles.push({
+
+            x: mx,
+            y: my,
+
+            vx:
+                Math.cos(angle) *
+                40,
+
+            vy:
+                Math.sin(angle) *
+                40,
+
+            life: 0.07,
+
+            maxLife: 0.07,
+
+            color: '#ffe082',
+
+            radius: 7,
+
+            gravity: 0,
+
+            friction: 0.8,
+
+            type: 'muzzle',
+
+            angle
+        });
+
+        // Small smoke particle
+        this.particles.push({
+
+            x: mx,
+            y: my,
+
+            vx:
+                Math.cos(angle) *
+                Utils.randFloat(15, 35),
+
+            vy:
+                Math.sin(angle) *
+                Utils.randFloat(15, 35),
+
+            life: 0.18,
+
+            maxLife: 0.18,
+
+            color: 'rgba(180,180,180,0.6)',
+
+            radius: 3,
+
+            gravity: -5,
+
+            friction: 0.96,
+
+            type: 'smoke'
+        });
+    },
+
+    // ─────────────────────────────────────────────
+    // ELIMINATION
+    // ─────────────────────────────────────────────
 
     /**
      * Spawn elimination explosion.
      */
     spawnElimination(x, y) {
-        this.spawnBurst(x, y, 15, '#ff5252', 150, 0.5);
-        this.spawnBurst(x, y, 8, '#ffab00', 100, 0.4);
+
+        // Red explosion
+        this.spawnBurst(
+            x,
+            y,
+            18,
+            '#ff5252',
+            170,
+            0.55
+        );
+
+        // Orange explosion
+        this.spawnBurst(
+            x,
+            y,
+            10,
+            '#ffab00',
+            120,
+            0.45
+        );
+
+        // White flash
+        this.spawnBurst(
+            x,
+            y,
+            5,
+            '#ffffff',
+            80,
+            0.20
+        );
+
+        // Screen shake
+        if (
+            typeof CameraSystem !== 'undefined'
+        ) {
+
+            CameraSystem.shake(
+                10,
+                0.30
+            );
+        }
     },
+
+    // ─────────────────────────────────────────────
+    // PICKUP EFFECT
+    // ─────────────────────────────────────────────
 
     /**
      * Spawn loot pickup sparkle.
      */
-    spawnPickupEffect(x, y, color) {
-        this.spawnBurst(x, y, 6, color || '#00e5ff', 60, 0.35);
+    spawnPickupEffect(
+        x,
+        y,
+        color
+    ) {
+
+        const pickupColor =
+            color ||
+            '#00e5ff';
+
+        // Burst
+        this.spawnBurst(
+            x,
+            y,
+            8,
+            pickupColor,
+            70,
+            0.38
+        );
+
+        // Ring particle
+        this.particles.push({
+
+            x,
+            y,
+
+            vx: 0,
+            vy: 0,
+
+            life: 0.35,
+
+            maxLife: 0.35,
+
+            color:
+                pickupColor,
+
+            radius: 5,
+
+            gravity: 0,
+
+            friction: 1,
+
+            type: 'pickupRing'
+        });
     },
 
-    // ── Damage Numbers ─────────────────────────────────────────
+    // ═════════════════════════════════════════════
+    // DAMAGE NUMBERS
+    // ═════════════════════════════════════════════
 
     /**
      * Show floating damage number.
      */
-    addDamageNumber(x, y, amount, isPlayer) {
+    addDamageNumber(
+        x,
+        y,
+        amount,
+        isPlayer
+    ) {
+
+        const damage =
+            Math.round(amount);
+
         this.damageNumbers.push({
-            x: x + Utils.randFloat(-10, 10),
-            y: y - 20,
-            amount: Math.round(amount),
+
+            x:
+                x +
+                Utils.randFloat(
+                    -10,
+                    10
+                ),
+
+            y:
+                y - 20,
+
+            amount:
+                damage,
+
             life: 1.0,
+
             maxLife: 1.0,
-            color: isPlayer ? '#ff1744' : '#ffe082',
+
+            color:
+                isPlayer
+                    ? '#ff1744'
+                    : '#ffe082',
+
             vy: -50,
+
+            // Larger numbers feel stronger
+            scale:
+                Math.min(
+                    1.5,
+                    1 +
+                    damage / 100
+                )
         });
     },
 
-    // ── Kill Feed ──────────────────────────────────────────────
+    // ═════════════════════════════════════════════
+    // KILL FEED
+    // ═════════════════════════════════════════════
 
     /**
      * Add an entry to the kill feed.
      */
-    addKillFeedEntry(killerName, victimName, weaponName) {
+    addKillFeedEntry(
+        killerName,
+        victimName,
+        weaponName
+    ) {
+
         this.killFeed.unshift({
-            killer: killerName,
-            victim: victimName,
-            weapon: weaponName || '',
-            time: Date.now(),
+
+            killer:
+                killerName,
+
+            victim:
+                victimName,
+
+            weapon:
+                weaponName ||
+                '',
+
+            time:
+                Date.now(),
+
+            // Used for entry animation
+            age: 0
         });
-        // Trim
-        if (this.killFeed.length > this.maxKillFeedEntries) {
+
+        // Trim old entries
+        if (
+            this.killFeed.length >
+            this.maxKillFeedEntries
+        ) {
+
             this.killFeed.pop();
         }
     },
 
-    // ── Update ─────────────────────────────────────────────────
+    // ═════════════════════════════════════════════
+    // UPDATE
+    // ═════════════════════════════════════════════
 
     update(dt) {
-        // Update particles
-        for (let i = this.particles.length - 1; i >= 0; i--) {
-            const p = this.particles[i];
-            p.x += p.vx * dt;
-            p.y += p.vy * dt;
+
+        // ─────────────────────────────────────────
+        // PARTICLES
+        // ─────────────────────────────────────────
+
+        for (
+            let i =
+                this.particles.length - 1;
+            i >= 0;
+            i--
+        ) {
+
+            const p =
+                this.particles[i];
+
+            // Position
+            p.x +=
+                p.vx * dt;
+
+            p.y +=
+                p.vy * dt;
+
+            // Gravity
+            if (
+                p.gravity
+            ) {
+
+                p.vy +=
+                    p.gravity * dt;
+            }
+
+            // Friction
+            if (
+                p.friction
+            ) {
+
+                p.vx *=
+                    Math.pow(
+                        p.friction,
+                        dt * 60
+                    );
+
+                p.vy *=
+                    Math.pow(
+                        p.friction,
+                        dt * 60
+                    );
+            }
+
+            // Life
             p.life -= dt;
-            p.vx *= 0.95;
-            p.vy *= 0.95;
-            if (p.life <= 0) {
-                this.particles.splice(i, 1);
+
+            // Remove dead particle
+            if (
+                p.life <= 0
+            ) {
+
+                this.particles.splice(
+                    i,
+                    1
+                );
             }
         }
 
-        // Update damage numbers
-        for (let i = this.damageNumbers.length - 1; i >= 0; i--) {
-            const d = this.damageNumbers[i];
-            d.y += d.vy * dt;
+        // ─────────────────────────────────────────
+        // DAMAGE NUMBERS
+        // ─────────────────────────────────────────
+
+        for (
+            let i =
+                this.damageNumbers.length - 1;
+            i >= 0;
+            i--
+        ) {
+
+            const d =
+                this.damageNumbers[i];
+
+            // Move upward
+            d.y +=
+                d.vy * dt;
+
+            // Slow down
+            d.vy *=
+                Math.pow(
+                    0.92,
+                    dt * 60
+                );
+
+            // Life
             d.life -= dt;
-            if (d.life <= 0) {
-                this.damageNumbers.splice(i, 1);
+
+            if (
+                d.life <= 0
+            ) {
+
+                this.damageNumbers.splice(
+                    i,
+                    1
+                );
             }
         }
 
-        // Clean old kill feed entries
-        const now = Date.now();
-        this.killFeed = this.killFeed.filter(e => now - e.time < this.killFeedDuration);
+        // ─────────────────────────────────────────
+        // KILL FEED
+        // ─────────────────────────────────────────
+
+        const now =
+            Date.now();
+
+        this.killFeed =
+            this.killFeed.filter(
+                entry =>
+                    now -
+                    entry.time <
+                    this.killFeedDuration
+            );
     },
 
-    // ── Render (World Space) ───────────────────────────────────
+    // ═════════════════════════════════════════════
+    // WORLD RENDER
+    // ═════════════════════════════════════════════
 
     renderWorld(ctx) {
-        // Particles
-        for (const p of this.particles) {
-            const alpha = p.life / p.maxLife;
-            ctx.globalAlpha = alpha;
+
+        // ─────────────────────────────────────────
+        // PARTICLES
+        // ─────────────────────────────────────────
+
+        for (
+            const p of this.particles
+        ) {
+
+            const alpha =
+                Math.max(
+                    0,
+                    Math.min(
+                        1,
+                        p.life /
+                        p.maxLife
+                    )
+                );
+
+            ctx.globalAlpha =
+                alpha;
+
+            // ─────────────────────────────────────
+            // MUZZLE FLASH
+            // ─────────────────────────────────────
+
+            if (
+                p.type === 'muzzle'
+            ) {
+
+                ctx.save();
+
+                ctx.translate(
+                    p.x,
+                    p.y
+                );
+
+                ctx.rotate(
+                    p.angle
+                );
+
+                ctx.beginPath();
+
+                ctx.moveTo(
+                    0,
+                    0
+                );
+
+                ctx.lineTo(
+                    p.radius * 3,
+                    -p.radius
+                );
+
+                ctx.lineTo(
+                    p.radius * 2,
+                    0
+                );
+
+                ctx.lineTo(
+                    p.radius * 3,
+                    p.radius
+                );
+
+                ctx.closePath();
+
+                ctx.fillStyle =
+                    p.color;
+
+                ctx.fill();
+
+                ctx.restore();
+
+                continue;
+            }
+
+            // ─────────────────────────────────────
+            // SMOKE
+            // ─────────────────────────────────────
+
+            if (
+                p.type === 'smoke'
+            ) {
+
+                ctx.beginPath();
+
+                ctx.arc(
+                    p.x,
+                    p.y,
+                    p.radius *
+                    (1 +
+                        (1 - alpha)),
+                    0,
+                    Math.PI * 2
+                );
+
+                ctx.fillStyle =
+                    p.color;
+
+                ctx.fill();
+
+                continue;
+            }
+
+            // ─────────────────────────────────────
+            // PICKUP RING
+            // ─────────────────────────────────────
+
+            if (
+                p.type === 'pickupRing'
+            ) {
+
+                const progress =
+                    1 - alpha;
+
+                const ringRadius =
+                    5 +
+                    progress * 18;
+
+                ctx.beginPath();
+
+                ctx.arc(
+                    p.x,
+                    p.y,
+                    ringRadius,
+                    0,
+                    Math.PI * 2
+                );
+
+                ctx.strokeStyle =
+                    p.color;
+
+                ctx.lineWidth =
+                    2 *
+                    alpha;
+
+                ctx.stroke();
+
+                continue;
+            }
+
+            // ─────────────────────────────────────
+            // NORMAL PARTICLE
+            // ─────────────────────────────────────
+
             ctx.beginPath();
-            ctx.arc(p.x, p.y, p.radius * alpha, 0, Math.PI * 2);
-            ctx.fillStyle = p.color;
+
+            ctx.arc(
+                p.x,
+                p.y,
+                Math.max(
+                    0.5,
+                    p.radius *
+                    alpha
+                ),
+                0,
+                Math.PI * 2
+            );
+
+            ctx.fillStyle =
+                p.color;
+
             ctx.fill();
         }
+
         ctx.globalAlpha = 1;
 
-        // Damage numbers
-        for (const d of this.damageNumbers) {
-            const alpha = d.life / d.maxLife;
-            ctx.globalAlpha = alpha;
-            ctx.fillStyle = d.color;
-            ctx.font = `bold ${12 + (1 - alpha) * 6}px Orbitron`;
-            ctx.textAlign = 'center';
-            ctx.fillText(`-${d.amount}`, d.x, d.y);
+        // ─────────────────────────────────────────
+        // DAMAGE NUMBERS
+        // ─────────────────────────────────────────
+
+        for (
+            const d of this.damageNumbers
+        ) {
+
+            const alpha =
+                Math.max(
+                    0,
+                    d.life /
+                    d.maxLife
+                );
+
+            ctx.globalAlpha =
+                alpha;
+
+            const fontSize =
+                12 +
+                (1 - alpha) *
+                6;
+
+            ctx.font =
+                `bold ${fontSize}px Orbitron, Arial`;
+
+            ctx.textAlign =
+                'center';
+
+            ctx.textBaseline =
+                'middle';
+
+            // Slight outline makes numbers
+            // readable over the map.
+            ctx.strokeStyle =
+                'rgba(0,0,0,0.7)';
+
+            ctx.lineWidth = 3;
+
+            ctx.strokeText(
+                `-${d.amount}`,
+                d.x,
+                d.y
+            );
+
+            ctx.fillStyle =
+                d.color;
+
+            ctx.fillText(
+                `-${d.amount}`,
+                d.x,
+                d.y
+            );
         }
+
         ctx.globalAlpha = 1;
     },
 
-    // ── Render (Screen Space) ──────────────────────────────────
+    // ═════════════════════════════════════════════
+    // SCREEN RENDER
+    // ═════════════════════════════════════════════
 
-    renderScreen(ctx, canvas) {
-        if (this.killFeed.length === 0) return;
+    renderScreen(
+        ctx,
+        canvas
+    ) {
 
-        const x = canvas.width - 300;
+        if (
+            this.killFeed.length === 0
+        ) {
+            return;
+        }
+
+        const x =
+            canvas.width - 300;
+
         let y = 80;
-        const now = Date.now();
 
-        for (const entry of this.killFeed) {
-            const age = now - entry.time;
-            const alpha = Math.max(0, 1 - age / this.killFeedDuration);
-            if (alpha <= 0) continue;
+        const now =
+            Date.now();
 
-            ctx.globalAlpha = alpha * 0.85;
+        // ─────────────────────────────────────────
+        // KILL FEED
+        // ─────────────────────────────────────────
 
-            // Background
-            ctx.fillStyle = 'rgba(10, 14, 23, 0.7)';
+        for (
+            const entry of this.killFeed
+        ) {
+
+            const age =
+                now -
+                entry.time;
+
+            const alpha =
+                Math.max(
+                    0,
+                    1 -
+                    age /
+                    this.killFeedDuration
+                );
+
+            if (
+                alpha <= 0
+            ) {
+                continue;
+            }
+
+            // Entry slides in from the right
+            const slideProgress =
+                Math.min(
+                    1,
+                    age / 180
+                );
+
+            const slideOffset =
+                (1 -
+                    slideProgress) *
+                25;
+
+            const drawX =
+                x +
+                slideOffset;
+
+            ctx.globalAlpha =
+                alpha * 0.9;
+
+            // ─────────────────────────────────────
+            // BACKGROUND
+            // ─────────────────────────────────────
+
+            ctx.fillStyle =
+                'rgba(10, 14, 23, 0.78)';
+
             const bgW = 280;
-            const bgH = 24;
-            ctx.fillRect(x, y, bgW, bgH);
+            const bgH = 26;
 
-            // Text
-            ctx.font = '10px Inter';
-            ctx.textAlign = 'left';
+            ctx.fillRect(
+                drawX,
+                y,
+                bgW,
+                bgH
+            );
 
-            // Killer name
-            const isPlayerKiller = entry.killer === 'You';
-            ctx.fillStyle = isPlayerKiller ? '#00e5ff' : '#ff5252';
-            ctx.fillText(entry.killer, x + 8, y + 16);
+            // Small left accent
+            ctx.fillStyle =
+                entry.killer === 'You'
+                    ? '#00e5ff'
+                    : '#ff5252';
 
-            // "eliminated"
-            const killerWidth = ctx.measureText(entry.killer).width;
-            ctx.fillStyle = '#666';
-            ctx.fillText(' ☠ ', x + 8 + killerWidth, y + 16);
+            ctx.fillRect(
+                drawX,
+                y,
+                3,
+                bgH
+            );
 
-            // Victim name
-            const midWidth = ctx.measureText(' ☠ ').width;
-            const isPlayerVictim = entry.victim === 'You';
-            ctx.fillStyle = isPlayerVictim ? '#00e5ff' : '#ccc';
-            ctx.fillText(entry.victim, x + 8 + killerWidth + midWidth, y + 16);
+            // ─────────────────────────────────────
+            // TEXT
+            // ─────────────────────────────────────
 
-            y += 28;
+            ctx.font =
+                '10px Inter, Arial';
+
+            ctx.textAlign =
+                'left';
+
+            ctx.textBaseline =
+                'middle';
+
+            // Killer
+            const isPlayerKiller =
+                entry.killer === 'You';
+
+            ctx.fillStyle =
+                isPlayerKiller
+                    ? '#00e5ff'
+                    : '#ff5252';
+
+            ctx.fillText(
+                entry.killer,
+                drawX + 9,
+                y + 13
+            );
+
+            const killerWidth =
+                ctx.measureText(
+                    entry.killer
+                ).width;
+
+            // Skull
+            ctx.fillStyle =
+                '#666';
+
+            ctx.fillText(
+                ' ☠ ',
+                drawX +
+                9 +
+                killerWidth,
+                y + 13
+            );
+
+            const skullWidth =
+                ctx.measureText(
+                    ' ☠ '
+                ).width;
+
+            // Victim
+            const isPlayerVictim =
+                entry.victim === 'You';
+
+            ctx.fillStyle =
+                isPlayerVictim
+                    ? '#00e5ff'
+                    : '#ccc';
+
+            ctx.fillText(
+                entry.victim,
+                drawX +
+                9 +
+                killerWidth +
+                skullWidth,
+                y + 13
+            );
+
+            // Weapon name
+            if (
+                entry.weapon
+            ) {
+
+                ctx.fillStyle =
+                    '#777';
+
+                ctx.font =
+                    '8px Inter, Arial';
+
+                ctx.textAlign =
+                    'right';
+
+                ctx.fillText(
+                    entry.weapon,
+                    drawX +
+                    bgW -
+                    8,
+                    y + 13
+                );
+            }
+
+            y += 30;
         }
 
         ctx.globalAlpha = 1;
-    },
+
+        ctx.textBaseline =
+            'alphabetic';
+    }
 };
