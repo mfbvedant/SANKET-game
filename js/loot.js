@@ -1,42 +1,81 @@
 /* ═══════════════════════════════════════════════════════════
    SURVIVOR ZONE — Loot System
-   Ground loot, rarity, location-based spawning,
-   pickup effects and dropped equipment.
+   Ground loot, rarity, location-aware spawning,
+   pickup interactions, dropped equipment and visual feedback.
    ═══════════════════════════════════════════════════════════ */
 
 const LootSystem = {
+
     items: [],
 
-    // ─────────────────────────────────────────────────────────
-    // RESET
-    // ─────────────────────────────────────────────────────────
+    /* ---------------------------------------------------------
+       PICKUP EVENT
+       Used by the player animation / HUD layer.
+       --------------------------------------------------------- */
+
+    lastPickupEvent: null,
+
+    PICKUP_ANIMATION_TIME: 450,
+
+
+    /* =========================================================
+       RESET
+       ========================================================= */
 
     reset() {
+
         this.items = [];
+
+        this.lastPickupEvent = null;
     },
 
-    // ─────────────────────────────────────────────────────────
-    // INITIAL LOOT
-    // ─────────────────────────────────────────────────────────
+
+    /* =========================================================
+       INITIAL LOOT
+       ========================================================= */
 
     spawnInitialLoot() {
+
         this.items = [];
+
+        this.lastPickupEvent = null;
+
+        if (
+            typeof MapSystem === 'undefined' ||
+            !Array.isArray(MapSystem.lootSpawnPoints)
+        ) {
+            console.warn(
+                'LootSystem: MapSystem loot spawn points unavailable.'
+            );
+
+            return;
+        }
+
 
         const points =
             MapSystem.lootSpawnPoints.slice();
 
-        // Shuffle spawn points
+
+        // Shuffle spawn points so every match
+        // has a different loot distribution.
         for (
             let i = points.length - 1;
             i > 0;
             i--
         ) {
+
             const j =
                 Utils.randInt(0, i);
 
-            [points[i], points[j]] =
-                [points[j], points[i]];
+            [
+                points[i],
+                points[j]
+            ] = [
+                points[j],
+                points[i]
+            ];
         }
+
 
         const count =
             Math.min(
@@ -44,20 +83,33 @@ const LootSystem = {
                 points.length
             );
 
+
         for (
             let i = 0;
             i < count;
             i++
         ) {
+
             const point =
                 points[i];
+
+
+            if (
+                !point ||
+                typeof point.x !== 'number' ||
+                typeof point.y !== 'number'
+            ) {
+                continue;
+            }
+
 
             const item =
                 this._generateRandomLoot(
                     point.x,
                     point.y,
-                    point.indoor
+                    !!point.indoor
                 );
+
 
             if (item) {
                 this.items.push(item);
@@ -65,33 +117,47 @@ const LootSystem = {
         }
     },
 
-    // ─────────────────────────────────────────────────────────
-    // GENERATE LOOT
-    // ─────────────────────────────────────────────────────────
+
+    /* =========================================================
+       RANDOM LOOT GENERATION
+       ========================================================= */
 
     _generateRandomLoot(
         x,
         y,
         indoor = false
     ) {
+
         const roll =
             Math.random();
 
-        // Indoor loot has a slightly higher
-        // chance of valuable items.
-        let weaponChance =
-            indoor ? 0.34 : 0.28;
 
-        let healthChance =
-            indoor ? 0.24 : 0.22;
+        /*
+         * Indoor areas:
+         * - More weapons
+         * - More healing
+         * - Slightly less armor
+         *
+         * Outdoor areas:
+         * - More ammunition
+         * - More basic survival loot
+         */
 
-        let ammoChance =
-            indoor ? 0.28 : 0.30;
+        const weaponChance =
+            indoor ? 0.34 : 0.27;
+
+        const ammoChance =
+            indoor ? 0.27 : 0.32;
+
+        const healthChance =
+            indoor ? 0.24 : 0.21;
+
 
         if (
             roll <
             weaponChance
         ) {
+
             return this._createWeaponLoot(
                 x,
                 y,
@@ -99,11 +165,13 @@ const LootSystem = {
             );
         }
 
+
         if (
             roll <
             weaponChance +
             ammoChance
         ) {
+
             return this._createAmmoLoot(
                 x,
                 y,
@@ -111,18 +179,21 @@ const LootSystem = {
             );
         }
 
+
         if (
             roll <
             weaponChance +
             ammoChance +
             healthChance
         ) {
+
             return this._createHealthLoot(
                 x,
                 y,
                 indoor
             );
         }
+
 
         return this._createArmorLoot(
             x,
@@ -131,19 +202,70 @@ const LootSystem = {
         );
     },
 
-    // ─────────────────────────────────────────────────────────
-    // WEAPON LOOT
-    // ─────────────────────────────────────────────────────────
+
+    /* =========================================================
+       BASE ITEM
+       ========================================================= */
+
+    _baseItem(
+        x,
+        y,
+        type,
+        indoor
+    ) {
+
+        return {
+
+            id:
+                Utils.uid(),
+
+            x,
+            y,
+
+            type,
+
+            picked: false,
+
+            indoor: !!indoor,
+
+            dropped: false,
+
+            spawnTime:
+                Date.now(),
+
+            pickupTime: null,
+
+            rotation:
+                Utils.randFloat(
+                    -0.15,
+                    0.15
+                )
+        };
+    },
+
+
+    /* =========================================================
+       WEAPON LOOT
+       ========================================================= */
 
     _createWeaponLoot(
         x,
         y,
-        indoor
+        indoor = false
     ) {
+
+        if (
+            typeof WEAPON_DEFS === 'undefined'
+        ) {
+            return null;
+        }
+
+
         const weaponKeys =
             Object.keys(
                 WEAPON_DEFS
             );
+
 
         if (
             weaponKeys.length === 0
@@ -151,129 +273,174 @@ const LootSystem = {
             return null;
         }
 
-        const weaponKey =
-            Utils.randomPick(
-                weaponKeys
-            );
+
+        /*
+         * Indoor areas slightly favor
+         * stronger weapons.
+         */
+
+        let weaponKey;
+
+
+        const highValueWeapons = [
+            'assault',
+            'shotgun',
+            'sniper'
+        ];
+
+
+        if (
+            indoor &&
+            Math.random() < 0.45
+        ) {
+
+            weaponKey =
+                Utils.randomPick(
+                    highValueWeapons.filter(
+                        key =>
+                            WEAPON_DEFS[key]
+                    )
+                );
+        }
+
+
+        if (!weaponKey) {
+
+            weaponKey =
+                Utils.randomPick(
+                    weaponKeys
+                );
+        }
+
 
         const rarity =
             this._rollRarity(
                 indoor
             );
 
+
         const definition =
             WEAPON_DEFS[
-            weaponKey
+                weaponKey
             ];
 
-        return {
-            id: Utils.uid(),
 
-            x,
-            y,
+        const item =
+            this._baseItem(
+                x,
+                y,
+                'weapon',
+                indoor
+            );
 
-            type: 'weapon',
 
-            weaponKey,
+        item.weaponKey =
+            weaponKey;
 
-            rarity,
+        item.rarity =
+            rarity;
 
-            name:
-                definition.name,
+        item.name =
+            definition.name;
 
-            color:
-                this._rarityColor(
-                    rarity
-                ),
+        item.color =
+            this._rarityColor(
+                rarity
+            );
 
-            picked: false,
 
-            indoor: !!indoor,
-
-            spawnTime: Date.now(),
-
-            rotation:
-                Utils.randFloat(
-                    -0.12,
-                    0.12
-                ),
-        };
+        return item;
     },
 
-    // ─────────────────────────────────────────────────────────
-    // AMMO LOOT
-    // ─────────────────────────────────────────────────────────
+
+    /* =========================================================
+       AMMO LOOT
+       ========================================================= */
 
     _createAmmoLoot(
         x,
         y,
-        indoor
+        indoor = false
     ) {
+
+        /*
+         * Weight ammo toward ammo types
+         * actually used by the weapon pool.
+         */
+
         const ammoTypes = [
             'light',
             'medium',
-            'heavy',
+            'heavy'
         ];
+
 
         const ammoType =
             Utils.randomPick(
                 ammoTypes
             );
 
-        const baseAmount =
-            indoor
-                ? Utils.randInt(20, 50)
-                : Utils.randInt(15, 40);
 
-        return {
-            id: Utils.uid(),
+        const minAmount =
+            indoor ? 25 : 15;
 
-            x,
-            y,
+        const maxAmount =
+            indoor ? 55 : 40;
 
-            type: 'ammo',
 
-            ammoType,
+        const amount =
+            Utils.randInt(
+                minAmount,
+                maxAmount
+            );
 
-            amount: baseAmount,
 
-            rarity: 'COMMON',
+        const item =
+            this._baseItem(
+                x,
+                y,
+                'ammo',
+                indoor
+            );
 
-            name:
-                `${this._formatAmmoName(
-                    ammoType
-                )} Ammo (${baseAmount})`,
 
-            color:
-                GAME.COLORS.AMMO_COLOR,
+        item.ammoType =
+            ammoType;
 
-            picked: false,
+        item.amount =
+            amount;
 
-            indoor: !!indoor,
+        item.rarity =
+            'COMMON';
 
-            spawnTime: Date.now(),
+        item.name =
+            `${this._formatAmmoName(
+                ammoType
+            )} Ammo (${amount})`;
 
-            rotation:
-                Utils.randFloat(
-                    -0.1,
-                    0.1
-                ),
-        };
+        item.color =
+            GAME.COLORS.AMMO_COLOR;
+
+
+        return item;
     },
 
-    // ─────────────────────────────────────────────────────────
-    // HEALTH LOOT
-    // ─────────────────────────────────────────────────────────
+
+    /* =========================================================
+       HEALTH LOOT
+       ========================================================= */
 
     _createHealthLoot(
         x,
         y,
-        indoor
+        indoor = false
     ) {
+
         const rarity =
             this._rollRarity(
                 indoor
             );
+
 
         const healAmount =
             this._getConsumableAmount(
@@ -283,51 +450,48 @@ const LootSystem = {
                 75
             );
 
-        return {
-            id: Utils.uid(),
 
-            x,
-            y,
+        const item =
+            this._baseItem(
+                x,
+                y,
+                'health',
+                indoor
+            );
 
-            type: 'health',
 
-            healAmount,
+        item.healAmount =
+            healAmount;
 
-            rarity,
+        item.rarity =
+            rarity;
 
-            name:
-                `Med Kit (+${healAmount})`,
+        item.name =
+            `Med Kit (+${healAmount})`;
 
-            color:
-                GAME.COLORS.HEALTH_BAR,
+        item.color =
+            GAME.COLORS.HEALTH_BAR;
 
-            picked: false,
 
-            indoor: !!indoor,
-
-            spawnTime: Date.now(),
-
-            rotation:
-                Utils.randFloat(
-                    -0.1,
-                    0.1
-                ),
-        };
+        return item;
     },
 
-    // ─────────────────────────────────────────────────────────
-    // ARMOR LOOT
-    // ─────────────────────────────────────────────────────────
+
+    /* =========================================================
+       ARMOR LOOT
+       ========================================================= */
 
     _createArmorLoot(
         x,
         y,
-        indoor
+        indoor = false
     ) {
+
         const rarity =
             this._rollRarity(
                 indoor
             );
+
 
         const armorAmount =
             this._getConsumableAmount(
@@ -337,48 +501,55 @@ const LootSystem = {
                 75
             );
 
-        return {
-            id: Utils.uid(),
 
-            x,
-            y,
+        const item =
+            this._baseItem(
+                x,
+                y,
+                'armor',
+                indoor
+            );
 
-            type: 'armor',
 
-            armorAmount,
+        item.armorAmount =
+            armorAmount;
 
-            rarity,
+        item.rarity =
+            rarity;
 
-            name:
-                `Armor Plate (+${armorAmount})`,
+        item.name =
+            `Armor Plate (+${armorAmount})`;
 
-            color:
-                GAME.COLORS.ARMOR_BAR,
+        item.color =
+            GAME.COLORS.ARMOR_BAR;
 
-            picked: false,
 
-            indoor: !!indoor,
-
-            spawnTime: Date.now(),
-
-            rotation:
-                Utils.randFloat(
-                    -0.1,
-                    0.1
-                ),
-        };
+        return item;
     },
 
-    // ─────────────────────────────────────────────────────────
-    // RARITY
-    // ─────────────────────────────────────────────────────────
 
-    _rollRarity(indoor = false) {
+    /* =========================================================
+       RARITY
+       ========================================================= */
+
+    _rollRarity(
+        indoor = false
+    ) {
+
         const r =
             Math.random();
 
-        // Slightly better loot indoors
+
+        /*
+         * Indoor:
+         * Common    48%
+         * Uncommon  28%
+         * Rare      17%
+         * Epic       7%
+         */
+
         if (indoor) {
+
             if (r < 0.07) {
                 return 'EPIC';
             }
@@ -393,6 +564,15 @@ const LootSystem = {
 
             return 'COMMON';
         }
+
+
+        /*
+         * Outdoor:
+         * Common    58%
+         * Uncommon  24%
+         * Rare      13%
+         * Epic       5%
+         */
 
         if (r < 0.05) {
             return 'EPIC';
@@ -409,18 +589,31 @@ const LootSystem = {
         return 'COMMON';
     },
 
+
+    /* =========================================================
+       RARITY COLOR
+       ========================================================= */
+
     _rarityColor(rarity) {
+
         if (
             GAME.RARITY &&
             GAME.RARITY[rarity]
         ) {
+
             return GAME.RARITY[
                 rarity
             ].color;
         }
 
-        return '#00e5ff';
+
+        return GAME.COLORS.LOOT_COMMON;
     },
+
+
+    /* =========================================================
+       CONSUMABLE VALUE
+       ========================================================= */
 
     _getConsumableAmount(
         rarity,
@@ -428,11 +621,13 @@ const LootSystem = {
         rare,
         epic
     ) {
+
         if (
             rarity === 'EPIC'
         ) {
             return epic;
         }
+
 
         if (
             rarity === 'RARE'
@@ -440,33 +635,49 @@ const LootSystem = {
             return rare;
         }
 
+
         if (
             rarity === 'UNCOMMON'
         ) {
+
             return Math.round(
-                (common + rare) /
-                2
+                (
+                    common +
+                    rare
+                ) / 2
             );
         }
+
 
         return common;
     },
 
-    // ─────────────────────────────────────────────────────────
-    // AMMO NAME
-    // ─────────────────────────────────────────────────────────
 
-    _formatAmmoName(type) {
+    /* =========================================================
+       AMMO NAME
+       ========================================================= */
+
+    _formatAmmoName(
+        type
+    ) {
+
+        if (!type) {
+            return 'Ammo';
+        }
+
+
         return (
-            type.charAt(0)
+            type
+                .charAt(0)
                 .toUpperCase() +
             type.slice(1)
         );
     },
 
-    // ─────────────────────────────────────────────────────────
-    // FIND NEAREST LOOT
-    // ─────────────────────────────────────────────────────────
+
+    /* =========================================================
+       FIND NEAREST PICKUP
+       ========================================================= */
 
     findNearestPickup(
         x,
@@ -474,20 +685,25 @@ const LootSystem = {
         range =
             GAME.LOOT_PICKUP_RANGE
     ) {
+
         let nearest = null;
 
         let nearestDist =
-            range;
+            Number(range) || 0;
+
 
         for (
             const item of
             this.items
         ) {
+
             if (
+                !item ||
                 item.picked
             ) {
                 continue;
             }
+
 
             const distance =
                 Utils.distance(
@@ -497,40 +713,56 @@ const LootSystem = {
                     item.y
                 );
 
+
             if (
-                distance <
+                distance <=
                 nearestDist
             ) {
+
                 nearestDist =
                     distance;
 
-                nearest = item;
+                nearest =
+                    item;
             }
         }
+
 
         return nearest;
     },
 
-    // ─────────────────────────────────────────────────────────
-    // GET LOOT NEAR PLAYER
-    // ─────────────────────────────────────────────────────────
+
+    /* =========================================================
+       NEARBY LOOT
+       ========================================================= */
 
     getNearbyLoot(
         x,
         y,
         range = 100
     ) {
+
         const result = [];
+
+        const safeRange =
+            Math.max(
+                0,
+                Number(range) || 0
+            );
+
 
         for (
             const item of
             this.items
         ) {
+
             if (
+                !item ||
                 item.picked
             ) {
                 continue;
             }
+
 
             if (
                 Utils.distance(
@@ -538,48 +770,121 @@ const LootSystem = {
                     y,
                     item.x,
                     item.y
-                ) <= range
+                ) <= safeRange
             ) {
-                result.push(item);
+
+                result.push(
+                    item
+                );
             }
         }
+
 
         return result;
     },
 
-    // ─────────────────────────────────────────────────────────
-    // PICK UP
-    // ─────────────────────────────────────────────────────────
 
-    pickUp(itemId) {
+    /* =========================================================
+       PICK UP
+       ========================================================= */
+
+    pickUp(
+        itemId
+    ) {
+
         const item =
             this.items.find(
                 entry =>
+                    entry &&
                     entry.id ===
                     itemId
             );
+
 
         if (!item) {
             return null;
         }
 
+
         if (item.picked) {
             return item;
         }
 
-        item.picked = true;
+
+        item.picked =
+            true;
+
+        item.pickupTime =
+            Date.now();
+
+
+        /*
+         * Store an event for the player animation
+         * and future UI systems.
+         */
+
+        this.lastPickupEvent = {
+
+            id:
+                item.id,
+
+            type:
+                item.type,
+
+            rarity:
+                item.rarity,
+
+            x:
+                item.x,
+
+            y:
+                item.y,
+
+            time:
+                Date.now()
+        };
+
+
+        /*
+         * Optional player animation hook.
+         *
+         * It is deliberately defensive so the loot system
+         * never crashes if Player is not available.
+         */
+
+        if (
+            typeof Player !== 'undefined'
+        ) {
+
+            Player.pickupAnimationUntil =
+                Date.now() +
+                this.PICKUP_ANIMATION_TIME;
+
+            Player.pickupAnimationTime =
+                0;
+        }
+
+
+        /* ---------- AUDIO ---------- */
 
         if (
             typeof AudioSystem !==
-            'undefined'
+            'undefined' &&
+            AudioSystem.playPickup
         ) {
+
             AudioSystem.playPickup();
         }
 
+
+        /* ---------- VFX ---------- */
+
         if (
             typeof VFXSystem !==
-            'undefined'
+            'undefined' &&
+            VFXSystem.spawnPickupEffect
         ) {
+
             VFXSystem.spawnPickupEffect(
                 item.x,
                 item.y,
@@ -587,12 +892,40 @@ const LootSystem = {
             );
         }
 
+
         return item;
     },
 
-    // ─────────────────────────────────────────────────────────
-    // DROP WEAPON
-    // ─────────────────────────────────────────────────────────
+
+    /* =========================================================
+       GET LAST PICKUP EVENT
+       ========================================================= */
+
+    getLastPickupEvent() {
+
+        return this.lastPickupEvent;
+    },
+
+
+    /* =========================================================
+       CONSUME PICKUP EVENT
+       ========================================================= */
+
+    consumePickupEvent() {
+
+        const event =
+            this.lastPickupEvent;
+
+        this.lastPickupEvent =
+            null;
+
+        return event;
+    },
+
+
+    /* =========================================================
+       DROP WEAPON
+       ========================================================= */
 
     dropWeapon(
         weaponKey,
@@ -600,131 +933,211 @@ const LootSystem = {
         x,
         y
     ) {
+
         if (
+            typeof WEAPON_DEFS ===
+            'undefined' ||
             !WEAPON_DEFS[
-            weaponKey
+                weaponKey
             ]
         ) {
             return null;
         }
 
+
         const safeRarity =
-            GAME.RARITY &&
+            (
+                GAME.RARITY &&
                 GAME.RARITY[rarity]
+            )
                 ? rarity
                 : 'COMMON';
 
-        const item = {
-            id: Utils.uid(),
 
-            x,
-            y,
+        const definition =
+            WEAPON_DEFS[
+                weaponKey
+            ];
 
-            type: 'weapon',
 
-            weaponKey,
+        const item =
+            this._baseItem(
+                x,
+                y,
+                'weapon',
+                false
+            );
 
-            rarity:
-                safeRarity,
 
-            name:
-                WEAPON_DEFS[
-                    weaponKey
-                ].name,
+        item.weaponKey =
+            weaponKey;
 
-            color:
-                this._rarityColor(
-                    safeRarity
-                ),
+        item.rarity =
+            safeRarity;
 
-            picked: false,
+        item.name =
+            definition.name;
 
-            indoor: false,
+        item.color =
+            this._rarityColor(
+                safeRarity
+            );
 
-            dropped: true,
+        item.dropped =
+            true;
 
-            spawnTime: Date.now(),
-
-            rotation:
-                Utils.randFloat(
-                    -0.15,
-                    0.15
-                ),
-        };
 
         this.items.push(
             item
         );
 
+
         return item;
     },
 
-    // ─────────────────────────────────────────────────────────
-    // CLEANUP
-    // ─────────────────────────────────────────────────────────
+
+    /* =========================================================
+       REMOVE ITEM
+       ========================================================= */
+
+    removeItem(
+        itemId
+    ) {
+
+        const index =
+            this.items.findIndex(
+                item =>
+                    item &&
+                    item.id ===
+                    itemId
+            );
+
+
+        if (index === -1) {
+            return false;
+        }
+
+
+        this.items.splice(
+            index,
+            1
+        );
+
+
+        return true;
+    },
+
+
+    /* =========================================================
+       CLEANUP PICKED ITEMS
+       ========================================================= */
 
     cleanupPickedItems() {
-        // Keep picked items briefly so systems that
-        // reference them don't break immediately.
+
+        const now =
+            Date.now();
+
+
         this.items =
             this.items.filter(
-                item =>
-                    !item.picked ||
-                    Date.now() -
-                    (item.pickupTime ||
-                        Date.now()) <
-                    1000
+                item => {
+
+                    if (!item) {
+                        return false;
+                    }
+
+
+                    if (!item.picked) {
+                        return true;
+                    }
+
+
+                    /*
+                     * Remove one second after pickup.
+                     *
+                     * IMPORTANT:
+                     * pickupTime is now explicitly assigned
+                     * in pickUp(), fixing the old cleanup bug.
+                     */
+
+                    const pickupTime =
+                        item.pickupTime ||
+                        now;
+
+
+                    return (
+                        now -
+                        pickupTime <
+                        1000
+                    );
+                }
             );
     },
 
-    // ─────────────────────────────────────────────────────────
-    // RENDER
-    // ─────────────────────────────────────────────────────────
+
+    /* =========================================================
+       RENDER
+       ========================================================= */
 
     render(ctx) {
+
+        if (
+            !ctx
+        ) {
+            return;
+        }
+
+
+        const now =
+            Date.now();
+
+
         for (
             const item of
             this.items
         ) {
+
             if (
+                !item ||
                 item.picked
             ) {
                 continue;
             }
 
-            const time =
-                Date.now();
 
             const pulse =
-                0.82 +
+                0.86 +
                 Math.sin(
-                    time * 0.003 +
-                    item.x *
-                    0.01
+                    now * 0.003 +
+                    item.x * 0.01 +
+                    item.y * 0.007
                 ) *
-                0.18;
+                0.14;
+
 
             const color =
                 item.color ||
-                '#00e5ff';
+                GAME.COLORS.LOOT_COMMON;
 
-            // ───────────────────────────────────────────────
-            // GLOW
-            // ───────────────────────────────────────────────
+
+            /* ---------------------------------------------
+               OUTER GLOW
+               --------------------------------------------- */
 
             ctx.save();
 
             ctx.globalAlpha =
-                0.22;
+                0.18;
 
             ctx.beginPath();
 
             ctx.arc(
                 item.x,
                 item.y,
-                (GAME.LOOT_RADIUS +
-                    8) *
-                pulse,
+                (
+                    GAME.LOOT_RADIUS +
+                    9
+                ) * pulse,
                 0,
                 Math.PI * 2
             );
@@ -736,9 +1149,12 @@ const LootSystem = {
 
             ctx.restore();
 
-            // ───────────────────────────────────────────────
-            // BACKGROUND
-            // ───────────────────────────────────────────────
+
+            /* ---------------------------------------------
+               LOOT BACKPLATE
+               --------------------------------------------- */
+
+            ctx.save();
 
             ctx.beginPath();
 
@@ -751,70 +1167,123 @@ const LootSystem = {
             );
 
             ctx.fillStyle =
-                'rgba(10, 14, 23, 0.88)';
+                'rgba(10, 14, 23, 0.90)';
+
+            ctx.fill();
+
 
             ctx.strokeStyle =
                 color;
 
             ctx.lineWidth =
-                item.rarity ===
-                    'EPIC'
+                item.rarity === 'EPIC'
                     ? 3
-                    : 2;
-
-            ctx.fill();
+                    : item.rarity === 'RARE'
+                        ? 2.5
+                        : 1.8;
 
             ctx.stroke();
 
-            // ───────────────────────────────────────────────
-            // ICON
-            // ───────────────────────────────────────────────
+            ctx.restore();
 
-            let drawn = false;
+
+            /* ---------------------------------------------
+               ICON
+               --------------------------------------------- */
+
+            let drawn =
+                false;
+
 
             if (
-                item.type ===
-                'weapon' &&
+                item.type === 'weapon' &&
                 item.weaponKey
             ) {
+
                 const weaponDef =
                     WEAPON_DEFS[
-                    item.weaponKey
+                        item.weaponKey
                     ];
+
 
                 drawn =
                     AssetManager.drawWeaponIcon(
                         ctx,
+
                         weaponDef
                             ? weaponDef.type
                             : 'pistol',
+
                         item.x,
                         item.y,
+
                         24,
                         14
                     );
             } else {
+
                 drawn =
                     AssetManager.drawLootIcon(
                         ctx,
+
                         item.type,
+
                         item.ammoType,
+
                         item.x,
                         item.y,
-                        16
+
+                        17
                     );
             }
 
-            // ───────────────────────────────────────────────
-            // FALLBACK ICON
-            // ───────────────────────────────────────────────
+
+            /* ---------------------------------------------
+               FALLBACK ICON
+               --------------------------------------------- */
 
             if (!drawn) {
+
+                let symbol =
+                    '◆';
+
+
+                if (
+                    item.type ===
+                    'weapon'
+                ) {
+                    symbol = '⚔';
+                }
+
+                else if (
+                    item.type ===
+                    'ammo'
+                ) {
+                    symbol = '•';
+                }
+
+                else if (
+                    item.type ===
+                    'health'
+                ) {
+                    symbol = '+';
+                }
+
+                else if (
+                    item.type ===
+                    'armor'
+                ) {
+                    symbol = '▣';
+                }
+
+
+                ctx.save();
+
                 ctx.fillStyle =
                     color;
 
                 ctx.font =
-                    'bold 10px Inter';
+                    'bold 11px Inter, sans-serif';
 
                 ctx.textAlign =
                     'center';
@@ -822,71 +1291,128 @@ const LootSystem = {
                 ctx.textBaseline =
                     'middle';
 
-                let symbol = '◆';
-
-                if (
-                    item.type ===
-                    'weapon'
-                ) {
-                    symbol = '⚔';
-                } else if (
-                    item.type ===
-                    'ammo'
-                ) {
-                    symbol = '•';
-                } else if (
-                    item.type ===
-                    'health'
-                ) {
-                    symbol = '+';
-                }
 
                 ctx.fillText(
                     symbol,
                     item.x,
                     item.y
                 );
+
+                ctx.restore();
             }
 
-            // ───────────────────────────────────────────────
-            // EPIC / RARE INDICATOR
-            // ───────────────────────────────────────────────
+
+            /* ---------------------------------------------
+               RARE / EPIC PULSE RING
+               --------------------------------------------- */
 
             if (
-                item.rarity ===
-                'EPIC' ||
-                item.rarity ===
-                'RARE'
+                item.rarity === 'RARE' ||
+                item.rarity === 'EPIC'
             ) {
+
                 ctx.save();
 
                 ctx.globalAlpha =
-                    0.6 +
+                    0.45 +
                     Math.sin(
-                        time * 0.005
-                    ) *
-                    0.25;
+                        now * 0.005
+                    ) * 0.20;
+
 
                 ctx.beginPath();
 
                 ctx.arc(
                     item.x,
                     item.y,
+
                     GAME.LOOT_RADIUS +
-                    5,
+                    (
+                        item.rarity === 'EPIC'
+                            ? 7
+                            : 5
+                    ),
+
                     0,
                     Math.PI * 2
                 );
 
+
                 ctx.strokeStyle =
                     color;
 
-                ctx.lineWidth = 1;
+                ctx.lineWidth =
+                    item.rarity === 'EPIC'
+                        ? 1.8
+                        : 1;
+
 
                 ctx.stroke();
 
                 ctx.restore();
             }
+
+
+            /* ---------------------------------------------
+               ITEM LABEL
+               Only shown when the player is nearby.
+               --------------------------------------------- */
+
+            if (
+                typeof Player !==
+                'undefined' &&
+                Player.isAlive
+            ) {
+
+                const distance =
+                    Utils.distance(
+                        Player.x,
+                        Player.y,
+                        item.x,
+                        item.y
+                    );
+
+
+                if (
+                    distance <= 55
+                ) {
+
+                    ctx.save();
+
+                    ctx.globalAlpha =
+                        Math.max(
+                            0,
+                            1 -
+                            distance / 70
+                        );
+
+
+                    ctx.font =
+                        '600 9px Inter, sans-serif';
+
+                    ctx.textAlign =
+                        'center';
+
+                    ctx.textBaseline =
+                        'bottom';
+
+
+                    ctx.fillStyle =
+                        '#e8f1f5';
+
+
+                    ctx.fillText(
+                        item.name,
+                        item.x,
+                        item.y -
+                        GAME.LOOT_RADIUS -
+                        7
+                    );
+
+
+                    ctx.restore();
+                }
+            }
         }
-    },
+    }
 };

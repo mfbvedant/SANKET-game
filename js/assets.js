@@ -4,6 +4,7 @@
    ═══════════════════════════════════════════════════════════ */
 
 const AssetManager = {
+
     images: {},
 
     loadedCount: 0,
@@ -12,21 +13,45 @@ const AssetManager = {
     loadFailed: false,
 
     SOURCES: {
-        hero: 'pictures/Tactical Operative with Orange Scarf.png',
-        weaponsLineup: 'pictures/Tactical Firearms Game Asset Lineup.png',
-        lootIcons: 'pictures/Tactical Survival Loot Icon Collection.png',
-        mapAssets: 'pictures/Top-Down Tactical Battle Royale Asset Sheet.png',
-        soldierSprite: 'pictures/Tactical Soldier Animation Sprite Sheet.png',
-        vehicles: 'pictures/Rugged Vehicle Asset Sheet.png',
-        hudKit: 'pictures/Battle Royale Military HUD UI Kit.png',
-        mercenarySquad: 'pictures/Tactical Mercenary Squad Lineup.png',
+
+        hero:
+            'pictures/Tactical Operative with Orange Scarf.png',
+
+        weaponsLineup:
+            'pictures/Tactical Firearms Game Asset Lineup.png',
+
+        lootIcons:
+            'pictures/Tactical Survival Loot Icon Collection.png',
+
+        mapAssets:
+            'pictures/Top-Down Tactical Battle Royale Asset Sheet.png',
+
+        /*
+         * IMPORTANT:
+         * This is the actual animated soldier sheet.
+         */
+        soldierSprite:
+            'pictures/Tactical Soldier Animation Sprite Sheet.png',
+
+        vehicles:
+            'pictures/Rugged Vehicle Asset Sheet.png',
+
+        hudKit:
+            'pictures/Battle Royale Military HUD UI Kit.png',
+
+        mercenarySquad:
+            'pictures/Tactical Mercenary Squad Lineup.png',
     },
 
-    /**
-     * Preload every game image.
-     */
+
+    // ═══════════════════════════════════════════════════════
+    // INITIALIZATION
+    // ═══════════════════════════════════════════════════════
+
     init() {
-        const keys = Object.keys(this.SOURCES);
+
+        const keys =
+            Object.keys(this.SOURCES);
 
         this.loadedCount = 0;
         this.totalCount = keys.length;
@@ -35,53 +60,87 @@ const AssetManager = {
         this.images = {};
 
         if (this.totalCount === 0) {
+
             this.isLoaded = true;
+
             return Promise.resolve();
         }
 
         return new Promise((resolve) => {
+
             let completed = 0;
 
-            const finishAsset = (key, success) => {
-                completed++;
-                this.loadedCount = completed;
+            const finishAsset =
+                (key, success) => {
 
-                if (!success) {
-                    this.loadFailed = true;
-                    console.warn(
-                        `Failed to load asset: ${this.SOURCES[key]}`
-                    );
-                }
+                    completed++;
 
-                if (completed >= this.totalCount) {
-                    this.isLoaded = true;
-                    resolve();
-                }
-            };
+                    this.loadedCount =
+                        completed;
+
+                    if (!success) {
+
+                        this.loadFailed = true;
+
+                        console.warn(
+                            `Failed to load asset: ${this.SOURCES[key]}`
+                        );
+                    }
+
+                    if (
+                        completed >=
+                        this.totalCount
+                    ) {
+
+                        this.isLoaded = true;
+
+                        resolve();
+                    }
+                };
+
 
             keys.forEach((key) => {
-                const img = new Image();
+
+                const img =
+                    new Image();
 
                 img.onload = () => {
-                    img.dataset.assetKey = key;
-                    finishAsset(key, true);
+
+                    img.dataset.assetKey =
+                        key;
+
+                    finishAsset(
+                        key,
+                        true
+                    );
                 };
 
                 img.onerror = () => {
-                    finishAsset(key, false);
+
+                    finishAsset(
+                        key,
+                        false
+                    );
                 };
 
-                img.src = this.SOURCES[key];
-                this.images[key] = img;
+                img.src =
+                    this.SOURCES[key];
+
+                this.images[key] =
+                    img;
             });
         });
     },
 
-    /**
-     * Check whether an asset is ready for drawing.
-     */
+
+    // ═══════════════════════════════════════════════════════
+    // ASSET STATUS
+    // ═══════════════════════════════════════════════════════
+
     isReady(key) {
-        const img = this.images[key];
+
+        const img =
+            this.images[key];
 
         return !!(
             img &&
@@ -91,21 +150,27 @@ const AssetManager = {
         );
     },
 
-    /**
-     * Get loading progress from 0 to 1.
-     */
+
     getLoadProgress() {
-        if (this.totalCount <= 0) return 1;
+
+        if (
+            this.totalCount <= 0
+        ) {
+            return 1;
+        }
 
         return Math.min(
             1,
-            this.loadedCount / this.totalCount
+            this.loadedCount /
+            this.totalCount
         );
     },
 
-    /**
-     * Generic centered image renderer.
-     */
+
+    // ═══════════════════════════════════════════════════════
+    // GENERIC IMAGE
+    // ═══════════════════════════════════════════════════════
+
     drawCentered(
         ctx,
         img,
@@ -116,15 +181,27 @@ const AssetManager = {
         angle = 0,
         alpha = 1
     ) {
-        if (!img || !img.complete || img.naturalWidth <= 0) {
+
+        if (
+            !img ||
+            !img.complete ||
+            img.naturalWidth <= 0
+        ) {
             return false;
         }
 
         ctx.save();
 
         ctx.globalAlpha *= alpha;
-        ctx.translate(x, y);
-        ctx.rotate(angle);
+
+        ctx.translate(
+            x,
+            y
+        );
+
+        ctx.rotate(
+            angle
+        );
 
         ctx.drawImage(
             img,
@@ -139,30 +216,45 @@ const AssetManager = {
         return true;
     },
 
-    /**
-     * Draw weapon icon.
-     *
-     * Weapon lineup:
-     * 0 = pistol
-     * 1 = SMG
-     * 2 = assault rifle
-     * 3 = shotgun
-     * 4 = sniper
-     */
-    drawWeaponIcon(ctx, weaponKey, x, y, width, height) {
-        const img = this.images.weaponsLineup;
 
-        if (!this.isReady('weaponsLineup')) {
+    // ═══════════════════════════════════════════════════════
+    // WEAPONS
+    // ═══════════════════════════════════════════════════════
+
+    drawWeaponIcon(
+        ctx,
+        weaponKey,
+        x,
+        y,
+        width,
+        height
+    ) {
+
+        const img =
+            this.images.weaponsLineup;
+
+        if (
+            !this.isReady(
+                'weaponsLineup'
+            )
+        ) {
             return false;
         }
 
         const indexMap = {
+
             pistol: 0,
+
             smg: 1,
+
             ar: 2,
+
             assault: 2,
+
             assault_rifle: 2,
+
             shotgun: 3,
+
             sniper: 4,
         };
 
@@ -173,9 +265,15 @@ const AssetManager = {
 
         const totalWeapons = 5;
 
-        const srcW = img.naturalWidth / totalWeapons;
-        const srcH = img.naturalHeight;
-        const srcX = idx * srcW;
+        const srcW =
+            img.naturalWidth /
+            totalWeapons;
+
+        const srcH =
+            img.naturalHeight;
+
+        const srcX =
+            idx * srcW;
 
         ctx.save();
 
@@ -198,13 +296,28 @@ const AssetManager = {
         return true;
     },
 
-    /**
-     * Draw loot icon from the loot icon sheet.
-     */
-    drawLootIcon(ctx, type, subKey, x, y, size) {
-        const img = this.images.lootIcons;
 
-        if (!this.isReady('lootIcons')) {
+    // ═══════════════════════════════════════════════════════
+    // LOOT
+    // ═══════════════════════════════════════════════════════
+
+    drawLootIcon(
+        ctx,
+        type,
+        subKey,
+        x,
+        y,
+        size
+    ) {
+
+        const img =
+            this.images.lootIcons;
+
+        if (
+            !this.isReady(
+                'lootIcons'
+            )
+        ) {
             return false;
         }
 
@@ -212,23 +325,39 @@ const AssetManager = {
         let row = 0;
 
         if (type === 'health') {
+
             col = 0;
             row = 0;
+
         } else if (type === 'armor') {
+
             col = 0;
             row = 1;
+
         } else if (type === 'ammo') {
+
             if (subKey === 'light') {
+
                 col = 0;
                 row = 2;
-            } else if (subKey === 'medium') {
+
+            } else if (
+                subKey === 'medium'
+            ) {
+
                 col = 1;
                 row = 2;
+
             } else {
+
                 col = 2;
                 row = 2;
             }
-        } else if (type === 'weapon') {
+
+        } else if (
+            type === 'weapon'
+        ) {
+
             col = 0;
             row = 4;
         }
@@ -236,15 +365,24 @@ const AssetManager = {
         const cols = 7;
         const rows = 5;
 
-        const cellW = img.naturalWidth / cols;
-        const cellH = img.naturalHeight / rows;
+        const cellW =
+            img.naturalWidth /
+            cols;
 
-        const srcX = col * cellW;
-        const srcY = row * cellH;
+        const cellH =
+            img.naturalHeight /
+            rows;
+
+        const srcX =
+            col * cellW;
+
+        const srcY =
+            row * cellH;
 
         ctx.save();
 
-        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingEnabled =
+            true;
 
         ctx.drawImage(
             img,
@@ -263,9 +401,11 @@ const AssetManager = {
         return true;
     },
 
-    /**
-     * Draw a vehicle from the tactical map sheet.
-     */
+
+    // ═══════════════════════════════════════════════════════
+    // VEHICLES
+    // ═══════════════════════════════════════════════════════
+
     drawVehicle(
         ctx,
         type,
@@ -275,19 +415,32 @@ const AssetManager = {
         height,
         angle = 0
     ) {
-        const img = this.images.mapAssets;
 
-        if (!this.isReady('mapAssets')) {
+        const img =
+            this.images.mapAssets;
+
+        if (
+            !this.isReady(
+                'mapAssets'
+            )
+        ) {
             return false;
         }
 
         const vehicleMap = {
+
             jeep: 0,
+
             truck: 1,
+
             buggy: 2,
+
             bike: 3,
+
             sedan: 4,
+
             boat: 5,
+
             armored: 6,
         };
 
@@ -298,20 +451,31 @@ const AssetManager = {
 
         const totalVehicles = 7;
 
-        const srcW = img.naturalWidth / totalVehicles;
+        const srcW =
+            img.naturalWidth /
+            totalVehicles;
 
-        /*
-         * Vehicle strip occupies approximately
-         * 42% to 58% of the source sheet.
-         */
-        const srcH = img.naturalHeight * 0.16;
-        const srcX = idx * srcW;
-        const srcY = img.naturalHeight * 0.42;
+        const srcH =
+            img.naturalHeight *
+            0.16;
+
+        const srcX =
+            idx * srcW;
+
+        const srcY =
+            img.naturalHeight *
+            0.42;
 
         ctx.save();
 
-        ctx.translate(x, y);
-        ctx.rotate(angle);
+        ctx.translate(
+            x,
+            y
+        );
+
+        ctx.rotate(
+            angle
+        );
 
         ctx.drawImage(
             img,
@@ -330,56 +494,202 @@ const AssetManager = {
         return true;
     },
 
-    /**
-     * Draw a top-down character skin.
+
+    // ═══════════════════════════════════════════════════════
+    // ⭐ ANIMATED SOLDIER
+    // ═══════════════════════════════════════════════════════
+
+    /*
+     * Soldier sprite sheet layout:
+     *
+     * 1536 × 1024
+     *
+     * 10 columns
+     * 8 rows
+     *
+     * Row 0 = IDLE
+     * Row 1 = WALK
+     * Row 2 = SHOOT
+     * Row 3 = RELOAD
+     * Row 4 = DAMAGE
+     * Row 5 = DEATH
+     * Row 6 = LOOT
+     * Row 7 = HEAL
      */
-    drawTopDownCharacter(
+
+    SOLDIER_FRAME_COLUMNS: 10,
+
+    SOLDIER_FRAME_ROWS: 8,
+
+
+    SOLDIER_ANIMATIONS: {
+
+        idle: {
+            row: 0,
+            frames: 10,
+            speed: 5,
+        },
+
+        walk: {
+            row: 1,
+            frames: 10,
+            speed: 10,
+        },
+
+        run: {
+            row: 1,
+            frames: 10,
+            speed: 14,
+        },
+
+        shoot: {
+            row: 2,
+            frames: 10,
+            speed: 16,
+        },
+
+        reload: {
+            row: 3,
+            frames: 10,
+            speed: 10,
+        },
+
+        hurt: {
+            row: 4,
+            frames: 10,
+            speed: 12,
+        },
+
+        damage: {
+            row: 4,
+            frames: 10,
+            speed: 12,
+        },
+
+        death: {
+            row: 5,
+            frames: 10,
+            speed: 8,
+        },
+
+        loot: {
+            row: 6,
+            frames: 10,
+            speed: 9,
+        },
+
+        pickup: {
+            row: 6,
+            frames: 10,
+            speed: 9,
+        },
+
+        heal: {
+            row: 7,
+            frames: 10,
+            speed: 9,
+        },
+    },
+
+
+    /**
+     * Draw one animation frame from the soldier sheet.
+     */
+    drawAnimatedCharacter(
         ctx,
-        skinIdx,
+        state,
+        frame,
         x,
         y,
         size,
-        angle = 0
+        angle = 0,
+        alpha = 1
     ) {
-        const img = this.images.mapAssets;
 
-        if (!this.isReady('mapAssets')) {
+        const img =
+            this.images.soldierSprite;
+
+        if (
+            !this.isReady(
+                'soldierSprite'
+            )
+        ) {
+
             return false;
         }
 
-        const totalSkins = 8;
+        const animation =
+            this.SOLDIER_ANIMATIONS[
+                state
+            ] ||
+            this.SOLDIER_ANIMATIONS.idle;
 
-        const numericSkin =
-            Number.isFinite(Number(skinIdx))
-                ? Number(skinIdx)
-                : 0;
+        const columns =
+            this.SOLDIER_FRAME_COLUMNS;
 
-        const idx =
-            Math.abs(Math.floor(numericSkin)) % totalSkins;
+        const rows =
+            this.SOLDIER_FRAME_ROWS;
 
-        const srcW = img.naturalWidth / totalSkins;
-        const srcH = img.naturalHeight * 0.20;
+        const frameCount =
+            Math.min(
+                animation.frames,
+                columns
+            );
 
-        const srcX = idx * srcW;
+        const currentFrame =
+            (
+                Math.floor(frame) %
+                frameCount +
+                frameCount
+            ) %
+            frameCount;
+
+        const srcW =
+            img.naturalWidth /
+            columns;
+
+        const srcH =
+            img.naturalHeight /
+            rows;
+
+        const srcX =
+            currentFrame * srcW;
+
+        const srcY =
+            animation.row * srcH;
 
         ctx.save();
 
-        ctx.translate(x, y);
+        ctx.globalAlpha *= alpha;
+
+        ctx.translate(
+            x,
+            y
+        );
 
         /*
-         * Asset faces upward by default.
-         * Rotate it to match the game's forward direction.
+         * Sprite faces approximately downward.
+         * Rotate it to match the character's aim.
          */
-        ctx.rotate(angle + Math.PI / 2);
+        ctx.rotate(
+            angle + Math.PI / 2
+        );
+
+        ctx.imageSmoothingEnabled =
+            true;
 
         ctx.drawImage(
             img,
+
             srcX,
-            0,
+            srcY,
+
             srcW,
             srcH,
+
             -size / 2,
             -size / 2,
+
             size,
             size
         );
@@ -389,26 +699,205 @@ const AssetManager = {
         return true;
     },
 
-    /**
-     * Draw a tree.
-     */
-    drawTree(ctx, x, y, radius) {
-        const img = this.images.mapAssets;
 
-        if (!this.isReady('mapAssets')) {
+    /**
+     * Get animation frame count.
+     */
+    getAnimationFrameCount(
+        state = 'idle'
+    ) {
+
+        const animation =
+            this.SOLDIER_ANIMATIONS[
+                state
+            ] ||
+            this.SOLDIER_ANIMATIONS.idle;
+
+        return animation.frames;
+    },
+
+
+    /**
+     * Get animation speed.
+     */
+    getAnimationSpeed(
+        state = 'idle'
+    ) {
+
+        const animation =
+            this.SOLDIER_ANIMATIONS[
+                state
+            ] ||
+            this.SOLDIER_ANIMATIONS.idle;
+
+        return animation.speed;
+    },
+
+
+    /**
+     * Backwards-compatible character renderer.
+     *
+     * Existing player/enemy code can continue calling:
+     *
+     * drawTopDownCharacter(
+     *     ctx,
+     *     skin,
+     *     x,
+     *     y,
+     *     size,
+     *     angle
+     * )
+     *
+     * Optional state/frame arguments allow animation.
+     */
+    drawTopDownCharacter(
+        ctx,
+        skinIdx,
+        x,
+        y,
+        size,
+        angle = 0,
+        state = 'idle',
+        frame = 0
+    ) {
+
+        return this.drawAnimatedCharacter(
+            ctx,
+            state,
+            frame,
+            x,
+            y,
+            size,
+            angle
+        );
+    },
+
+
+    // ═══════════════════════════════════════════════════════
+    // GENERIC SPRITE FRAME
+    // ═══════════════════════════════════════════════════════
+
+    drawSpriteFrame(
+        ctx,
+        key,
+        frame,
+        frameCount,
+        x,
+        y,
+        width,
+        height,
+        angle = 0
+    ) {
+
+        const img =
+            this.images[key];
+
+        if (
+            !img ||
+            !img.complete ||
+            img.naturalWidth <= 0 ||
+            img.naturalHeight <= 0
+        ) {
+
             return false;
         }
 
-        const srcX = img.naturalWidth * 0.56;
-        const srcY = img.naturalHeight * 0.60;
+        const frames =
+            Math.max(
+                1,
+                Math.floor(
+                    frameCount
+                )
+            );
 
-        const srcW = img.naturalWidth * 0.18;
-        const srcH = img.naturalHeight * 0.25;
+        const currentFrame =
+            (
+                Math.floor(frame) %
+                frames +
+                frames
+            ) %
+            frames;
 
-        const diameter = Math.max(
-            1,
-            radius * 2.2
+        const srcW =
+            img.naturalWidth /
+            frames;
+
+        const srcH =
+            img.naturalHeight;
+
+        ctx.save();
+
+        ctx.translate(
+            x,
+            y
         );
+
+        ctx.rotate(
+            angle
+        );
+
+        ctx.drawImage(
+            img,
+            currentFrame * srcW,
+            0,
+            srcW,
+            srcH,
+            -width / 2,
+            -height / 2,
+            width,
+            height
+        );
+
+        ctx.restore();
+
+        return true;
+    },
+
+
+    // ═══════════════════════════════════════════════════════
+    // TREE
+    // ═══════════════════════════════════════════════════════
+
+    drawTree(
+        ctx,
+        x,
+        y,
+        radius
+    ) {
+
+        const img =
+            this.images.mapAssets;
+
+        if (
+            !this.isReady(
+                'mapAssets'
+            )
+        ) {
+
+            return false;
+        }
+
+        const srcX =
+            img.naturalWidth *
+            0.56;
+
+        const srcY =
+            img.naturalHeight *
+            0.60;
+
+        const srcW =
+            img.naturalWidth *
+            0.18;
+
+        const srcH =
+            img.naturalHeight *
+            0.25;
+
+        const diameter =
+            Math.max(
+                1,
+                radius * 2.2
+            );
 
         ctx.save();
 
@@ -429,26 +918,51 @@ const AssetManager = {
         return true;
     },
 
-    /**
-     * Draw a rock.
-     */
-    drawRock(ctx, x, y, radius) {
-        const img = this.images.mapAssets;
 
-        if (!this.isReady('mapAssets')) {
+    // ═══════════════════════════════════════════════════════
+    // ROCK
+    // ═══════════════════════════════════════════════════════
+
+    drawRock(
+        ctx,
+        x,
+        y,
+        radius
+    ) {
+
+        const img =
+            this.images.mapAssets;
+
+        if (
+            !this.isReady(
+                'mapAssets'
+            )
+        ) {
+
             return false;
         }
 
-        const srcX = img.naturalWidth * 0.65;
-        const srcY = img.naturalHeight * 0.80;
+        const srcX =
+            img.naturalWidth *
+            0.65;
 
-        const srcW = img.naturalWidth * 0.12;
-        const srcH = img.naturalHeight * 0.16;
+        const srcY =
+            img.naturalHeight *
+            0.80;
 
-        const size = Math.max(
-            1,
-            radius * 2.2
-        );
+        const srcW =
+            img.naturalWidth *
+            0.12;
+
+        const srcH =
+            img.naturalHeight *
+            0.16;
+
+        const size =
+            Math.max(
+                1,
+                radius * 2.2
+            );
 
         ctx.save();
 
@@ -469,9 +983,11 @@ const AssetManager = {
         return true;
     },
 
-    /**
-     * Draw the hero character.
-     */
+
+    // ═══════════════════════════════════════════════════════
+    // HERO
+    // ═══════════════════════════════════════════════════════
+
     drawHero(
         ctx,
         x,
@@ -480,9 +996,16 @@ const AssetManager = {
         height,
         angle = 0
     ) {
-        const img = this.images.hero;
 
-        if (!this.isReady('hero')) {
+        const img =
+            this.images.hero;
+
+        if (
+            !this.isReady(
+                'hero'
+            )
+        ) {
+
             return false;
         }
 
@@ -497,71 +1020,11 @@ const AssetManager = {
         );
     },
 
-    /**
-     * Draw the soldier animation sprite sheet.
-     *
-     * This is a generic helper. The exact number of frames
-     * can be overridden by the caller.
-     */
-    drawSpriteFrame(
-        ctx,
-        key,
-        frame,
-        frameCount,
-        x,
-        y,
-        width,
-        height,
-        angle = 0
-    ) {
-        const img = this.images[key];
 
-        if (
-            !img ||
-            !img.complete ||
-            img.naturalWidth <= 0 ||
-            img.naturalHeight <= 0
-        ) {
-            return false;
-        }
+    // ═══════════════════════════════════════════════════════
+    // FALLBACK CHARACTER
+    // ═══════════════════════════════════════════════════════
 
-        const frames = Math.max(
-            1,
-            Math.floor(frameCount)
-        );
-
-        const currentFrame =
-            ((Math.floor(frame) % frames) + frames) % frames;
-
-        const srcW = img.naturalWidth / frames;
-        const srcH = img.naturalHeight;
-
-        ctx.save();
-
-        ctx.translate(x, y);
-        ctx.rotate(angle);
-
-        ctx.drawImage(
-            img,
-            currentFrame * srcW,
-            0,
-            srcW,
-            srcH,
-            -width / 2,
-            -height / 2,
-            width,
-            height
-        );
-
-        ctx.restore();
-
-        return true;
-    },
-
-    /**
-     * Draw a simple fallback character when an asset
-     * is unavailable.
-     */
     drawFallbackCharacter(
         ctx,
         x,
@@ -570,14 +1033,24 @@ const AssetManager = {
         angle = 0,
         isEnemy = false
     ) {
+
         ctx.save();
 
-        ctx.translate(x, y);
-        ctx.rotate(angle);
+        ctx.translate(
+            x,
+            y
+        );
+
+        ctx.rotate(
+            angle
+        );
 
         // Shadow
-        ctx.fillStyle = 'rgba(0,0,0,0.28)';
+        ctx.fillStyle =
+            'rgba(0,0,0,0.28)';
+
         ctx.beginPath();
+
         ctx.ellipse(
             0,
             size * 0.28,
@@ -587,14 +1060,18 @@ const AssetManager = {
             0,
             Math.PI * 2
         );
+
         ctx.fill();
 
+
         // Body
-        ctx.fillStyle = isEnemy
-            ? '#8f3030'
-            : '#d67b2c';
+        ctx.fillStyle =
+            isEnemy
+                ? '#8f3030'
+                : '#d67b2c';
 
         ctx.beginPath();
+
         ctx.arc(
             0,
             0,
@@ -602,12 +1079,16 @@ const AssetManager = {
             0,
             Math.PI * 2
         );
+
         ctx.fill();
 
+
         // Head
-        ctx.fillStyle = '#c99a73';
+        ctx.fillStyle =
+            '#c99a73';
 
         ctx.beginPath();
+
         ctx.arc(
             0,
             -size * 0.16,
@@ -615,25 +1096,33 @@ const AssetManager = {
             0,
             Math.PI * 2
         );
+
         ctx.fill();
 
+
         // Direction indicator
-        ctx.fillStyle = '#f2f2f2';
+        ctx.fillStyle =
+            '#f2f2f2';
 
         ctx.beginPath();
+
         ctx.moveTo(
             0,
             -size * 0.52
         );
+
         ctx.lineTo(
             -size * 0.12,
             -size * 0.28
         );
+
         ctx.lineTo(
             size * 0.12,
             -size * 0.28
         );
+
         ctx.closePath();
+
         ctx.fill();
 
         ctx.restore();

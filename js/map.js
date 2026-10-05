@@ -1,46 +1,81 @@
 /* ═══════════════════════════════════════════════════════════
    SURVIVOR ZONE — Map System
-   World generation, buildings, roads, cover, collision,
-   line-of-sight and map rendering.
+
+   World generation:
+   - Roads
+   - Buildings
+   - Trees
+   - Rocks
+   - Vehicles
+   - Loot locations
+   - Spawn locations
+
+   Gameplay:
+   - Collision
+   - Line of sight
+   - Cover detection
+   - Wall cache
+
+   Rendering:
+   - Tactical terrain
+   - Buildings
+   - Vehicles
+   - Rocks
+   - Trees
+   - Map border
    ═══════════════════════════════════════════════════════════ */
 
 const MapSystem = {
+
     buildings: [],
     trees: [],
     rocks: [],
     roads: [],
     vehicles: [],
+
     walls: [],
+
     spawnPoints: [],
+
     lootSpawnPoints: [],
 
-    // Cached wall data for faster LOS checks
     _wallBounds: [],
 
-    // ─────────────────────────────────────────────────────────
+
+    // ═════════════════════════════════════════════════════
     // GENERATE MAP
-    // ─────────────────────────────────────────────────────────
+    // ═════════════════════════════════════════════════════
 
     generate() {
+
         this.buildings = [];
         this.trees = [];
         this.rocks = [];
         this.roads = [];
         this.vehicles = [];
         this.walls = [];
+
         this.spawnPoints = [];
         this.lootSpawnPoints = [];
+
         this._wallBounds = [];
 
-        const W = GAME.MAP_WIDTH;
-        const H = GAME.MAP_HEIGHT;
 
-        // ─────────────────────────────────────────────────────
+        const W =
+            GAME.MAP_WIDTH;
+
+        const H =
+            GAME.MAP_HEIGHT;
+
+
+        // ═════════════════════════════════════════════
         // ROADS
-        // ─────────────────────────────────────────────────────
+        // ═════════════════════════════════════════════
 
-        const roadW = 60;
+        const roadW = 64;
 
+
+        // Main horizontal
         this.roads.push({
             x: 0,
             y: H / 2 - roadW / 2,
@@ -48,6 +83,8 @@ const MapSystem = {
             h: roadW,
         });
 
+
+        // Main vertical
         this.roads.push({
             x: W / 2 - roadW / 2,
             y: 0,
@@ -55,166 +92,185 @@ const MapSystem = {
             h: H,
         });
 
-        this.roads.push({
-            x: 0,
-            y: H * 0.25 - roadW / 2,
-            w: W,
-            h: roadW,
-        });
 
-        this.roads.push({
-            x: 0,
-            y: H * 0.75 - roadW / 2,
-            w: W,
-            h: roadW,
-        });
+        // Secondary roads
+        const horizontalRoads = [
+            H * 0.25,
+            H * 0.75,
+        ];
 
-        this.roads.push({
-            x: W * 0.25 - roadW / 2,
-            y: 0,
-            w: roadW,
-            h: H,
-        });
 
-        this.roads.push({
-            x: W * 0.75 - roadW / 2,
-            y: 0,
-            w: roadW,
-            h: H,
-        });
+        for (
+            const y of horizontalRoads
+        ) {
 
-        // ─────────────────────────────────────────────────────
-        // BUILDING AREAS
-        // ─────────────────────────────────────────────────────
+            this.roads.push({
+                x: 0,
+                y: y - roadW / 2,
+                w: W,
+                h: roadW,
+            });
+        }
 
-        const buildingAreas = [
+
+        const verticalRoads = [
+            W * 0.25,
+            W * 0.75,
+        ];
+
+
+        for (
+            const x of verticalRoads
+        ) {
+
+            this.roads.push({
+                x: x - roadW / 2,
+                y: 0,
+                w: roadW,
+                h: H,
+            });
+        }
+
+
+        // ═════════════════════════════════════════════
+        // BUILDING DISTRICTS
+        // ═════════════════════════════════════════════
+
+        const districts = [
+
             {
-                cx: W * 0.5,
-                cy: H * 0.5,
-                count: 8,
-                sizeMin: 60,
-                sizeMax: 120,
+                cx: W * 0.50,
+                cy: H * 0.50,
+                count: 9,
+                min: 65,
+                max: 125,
             },
+
             {
-                cx: W * 0.3,
-                cy: H * 0.2,
-                count: 5,
-                sizeMin: 50,
-                sizeMax: 100,
+                cx: W * 0.30,
+                cy: H * 0.20,
+                count: 6,
+                min: 55,
+                max: 105,
             },
+
             {
                 cx: W * 0.75,
-                cy: H * 0.3,
-                count: 5,
-                sizeMin: 50,
-                sizeMax: 90,
-            },
-            {
-                cx: W * 0.5,
-                cy: H * 0.8,
+                cy: H * 0.30,
                 count: 6,
-                sizeMin: 55,
-                sizeMax: 110,
+                min: 50,
+                max: 100,
             },
+
+            {
+                cx: W * 0.50,
+                cy: H * 0.80,
+                count: 6,
+                min: 55,
+                max: 115,
+            },
+
             {
                 cx: W * 0.15,
-                cy: H * 0.6,
-                count: 4,
-                sizeMin: 50,
-                sizeMax: 95,
+                cy: H * 0.60,
+                count: 5,
+                min: 50,
+                max: 100,
             },
+
             {
                 cx: W * 0.85,
                 cy: H * 0.15,
-                count: 3,
-                sizeMin: 45,
-                sizeMax: 80,
+                count: 4,
+                min: 45,
+                max: 90,
             },
+
             {
-                cx: W * 0.2,
+                cx: W * 0.20,
                 cy: H * 0.85,
                 count: 4,
-                sizeMin: 40,
-                sizeMax: 70,
+                min: 45,
+                max: 85,
             },
+
             {
-                cx: W * 0.8,
+                cx: W * 0.80,
                 cy: H * 0.75,
-                count: 4,
-                sizeMin: 70,
-                sizeMax: 130,
+                count: 5,
+                min: 65,
+                max: 130,
             },
         ];
 
-        for (const area of buildingAreas) {
-            for (let i = 0; i < area.count; i++) {
-                const bw = Utils.randInt(
-                    area.sizeMin,
-                    area.sizeMax
-                );
 
-                const bh = Utils.randInt(
-                    area.sizeMin,
-                    area.sizeMax
-                );
+        for (
+            const district of districts
+        ) {
+
+            for (
+                let i = 0;
+                i < district.count;
+                i++
+            ) {
+
+                const bw =
+                    Utils.randInt(
+                        district.min,
+                        district.max
+                    );
+
+
+                const bh =
+                    Utils.randInt(
+                        district.min,
+                        district.max
+                    );
+
 
                 const bx =
-                    area.cx +
-                    Utils.randInt(-200, 200) -
+                    district.cx +
+                    Utils.randInt(
+                        -210,
+                        210
+                    ) -
                     bw / 2;
 
+
                 const by =
-                    area.cy +
-                    Utils.randInt(-200, 200) -
+                    district.cy +
+                    Utils.randInt(
+                        -210,
+                        210
+                    ) -
                     bh / 2;
 
-                const rect = {
-                    x: bx,
-                    y: by,
-                    w: bw,
-                    h: bh,
-                };
 
-                // Check overlap
-                let overlaps = false;
-
-                for (const b of this.buildings) {
-                    if (
-                        Utils.rectCollision(
-                            rect,
-                            {
-                                x: b.x - 15,
-                                y: b.y - 15,
-                                w: b.w + 30,
-                                h: b.h + 30,
-                            }
-                        )
-                    ) {
-                        overlaps = true;
-                        break;
-                    }
-                }
-
-                if (overlaps) continue;
-
-                // Keep away from map border
                 if (
-                    bx < 50 ||
-                    by < 50 ||
-                    bx + bw > W - 50 ||
-                    by + bh > H - 50
+                    bx < 60 ||
+                    by < 60 ||
+                    bx + bw >
+                        W - 60 ||
+                    by + bh >
+                        H - 60
                 ) {
+
                     continue;
                 }
 
+
                 const building = {
+
                     x: bx,
                     y: by,
                     w: bw,
                     h: bh,
 
                     doorSide:
-                        Utils.randInt(0, 3),
+                        Utils.randInt(
+                            0,
+                            3
+                        ),
 
                     hasDoor: true,
 
@@ -225,135 +281,291 @@ const MapSystem = {
                         GAME.COLORS.BUILDING_FLOOR,
                 };
 
-                this.buildings.push(building);
+
+                // Keep buildings separated
+                let overlap =
+                    false;
+
+
+                for (
+                    const existing
+                    of this.buildings
+                ) {
+
+                    if (
+                        Utils.rectCollision(
+                            {
+                                x:
+                                    bx - 18,
+                                y:
+                                    by - 18,
+                                w:
+                                    bw + 36,
+                                h:
+                                    bh + 36,
+                            },
+                            {
+                                x:
+                                    existing.x,
+                                y:
+                                    existing.y,
+                                w:
+                                    existing.w,
+                                h:
+                                    existing.h,
+                            }
+                        )
+                    ) {
+
+                        overlap = true;
+
+                        break;
+                    }
+                }
+
+
+                if (overlap) {
+                    continue;
+                }
+
+
+                this.buildings.push(
+                    building
+                );
+
 
                 this._createBuildingWalls(
                     building
                 );
 
-                // Interior loot point
+
+                // Interior loot
                 this.lootSpawnPoints.push({
+
                     x:
                         bx +
                         bw / 2 +
-                        Utils.randInt(-10, 10),
+                        Utils.randInt(
+                            -15,
+                            15
+                        ),
 
                     y:
                         by +
                         bh / 2 +
-                        Utils.randInt(-10, 10),
+                        Utils.randInt(
+                            -15,
+                            15
+                        ),
 
                     indoor: true,
                 });
             }
         }
 
-        // ─────────────────────────────────────────────────────
+
+        // ═════════════════════════════════════════════
         // TREES
-        // ─────────────────────────────────────────────────────
+        // ═════════════════════════════════════════════
 
-        for (let i = 0; i < 200; i++) {
-            const tx =
-                Utils.randInt(80, W - 80);
+        for (
+            let i = 0;
+            i < 220;
+            i++
+        ) {
 
-            const ty =
-                Utils.randInt(80, H - 80);
+            const radius =
+                Utils.randInt(
+                    12,
+                    23
+                );
 
-            const tr =
-                Utils.randInt(12, 22);
+
+            const x =
+                Utils.randInt(
+                    70,
+                    W - 70
+                );
+
+
+            const y =
+                Utils.randInt(
+                    70,
+                    H - 70
+                );
+
 
             if (
                 this._positionBlocked(
-                    tx,
-                    ty,
-                    tr + 10,
+                    x,
+                    y,
+                    radius + 12,
                     true
                 )
             ) {
+
                 continue;
             }
 
+
             this.trees.push({
-                x: tx,
-                y: ty,
-                radius: tr,
+
+                x,
+                y,
+                radius,
             });
 
-            // Trees now provide physical cover
+
             this.walls.push({
-                x: tx - tr * 0.55,
-                y: ty - tr * 0.55,
-                w: tr * 1.1,
-                h: tr * 1.1,
+
+                x:
+                    x -
+                    radius * 0.55,
+
+                y:
+                    y -
+                    radius * 0.55,
+
+                w:
+                    radius * 1.1,
+
+                h:
+                    radius * 1.1,
+
                 isTree: true,
             });
         }
 
-        // ─────────────────────────────────────────────────────
+
+        // ═════════════════════════════════════════════
         // ROCKS
-        // ─────────────────────────────────────────────────────
+        // ═════════════════════════════════════════════
 
-        for (let i = 0; i < 80; i++) {
-            const rx =
-                Utils.randInt(60, W - 60);
+        for (
+            let i = 0;
+            i < 90;
+            i++
+        ) {
 
-            const ry =
-                Utils.randInt(60, H - 60);
+            const radius =
+                Utils.randInt(
+                    10,
+                    21
+                );
 
-            const rr =
-                Utils.randInt(10, 20);
+
+            const x =
+                Utils.randInt(
+                    60,
+                    W - 60
+                );
+
+
+            const y =
+                Utils.randInt(
+                    60,
+                    H - 60
+                );
+
 
             if (
                 this._positionBlocked(
-                    rx,
-                    ry,
-                    rr + 10,
+                    x,
+                    y,
+                    radius + 8,
                     false
                 )
             ) {
+
                 continue;
             }
 
+
             this.rocks.push({
-                x: rx,
-                y: ry,
-                radius: rr,
+
+                x,
+                y,
+                radius,
             });
 
+
             this.walls.push({
-                x: rx - rr,
-                y: ry - rr,
-                w: rr * 2,
-                h: rr * 2,
+
+                x:
+                    x - radius,
+
+                y:
+                    y - radius,
+
+                w:
+                    radius * 2,
+
+                h:
+                    radius * 2,
 
                 isRock: true,
             });
         }
 
-        // ─────────────────────────────────────────────────────
+
+        // ═════════════════════════════════════════════
         // VEHICLES
-        // ─────────────────────────────────────────────────────
+        // ═════════════════════════════════════════════
 
         const vehicleTypes = [
+
             'jeep',
+
             'truck',
+
             'buggy',
+
             'bike',
+
             'sedan',
+
             'boat',
         ];
 
-        for (let i = 0; i < 20; i++) {
-            const vx =
-                Utils.randInt(200, W - 200);
 
-            const vy =
-                Utils.randInt(200, H - 200);
+        for (
+            let i = 0;
+            i < 24;
+            i++
+        ) {
+
+            const x =
+                Utils.randInt(
+                    180,
+                    W - 180
+                );
+
+
+            const y =
+                Utils.randInt(
+                    180,
+                    H - 180
+                );
+
+
+            if (
+                this._positionBlocked(
+                    x,
+                    y,
+                    45,
+                    false
+                )
+            ) {
+
+                continue;
+            }
+
 
             const type =
                 Utils.randomPick(
                     vehicleTypes
                 );
+
 
             const angle =
                 Utils.randFloat(
@@ -361,126 +573,197 @@ const MapSystem = {
                     Math.PI * 2
                 );
 
-            if (
-                this._positionBlocked(
-                    vx,
-                    vy,
-                    40,
-                    false
-                )
-            ) {
-                continue;
-            }
 
             this.vehicles.push({
-                x: vx,
-                y: vy,
-                w: 60,
-                h: 36,
+
+                x,
+                y,
+
+                w: 62,
+                h: 38,
+
                 type,
+
                 angle,
             });
 
+
             this.walls.push({
-                x: vx - 30,
-                y: vy - 18,
-                w: 60,
-                h: 36,
+
+                x:
+                    x - 31,
+
+                y:
+                    y - 19,
+
+                w: 62,
+
+                h: 38,
 
                 isVehicle: true,
             });
         }
 
-        // ─────────────────────────────────────────────────────
+
+        // ═════════════════════════════════════════════
         // OUTDOOR LOOT
-        // ─────────────────────────────────────────────────────
+        // ═════════════════════════════════════════════
 
-        for (let i = 0; i < 100; i++) {
-            const lx =
-                Utils.randInt(100, W - 100);
+        for (
+            let i = 0;
+            i < 120;
+            i++
+        ) {
 
-            const ly =
-                Utils.randInt(100, H - 100);
+            const x =
+                Utils.randInt(
+                    100,
+                    W - 100
+                );
 
-            let blocked = false;
 
-            for (const b of this.buildings) {
-                if (
-                    lx > b.x &&
-                    lx < b.x + b.w &&
-                    ly > b.y &&
-                    ly < b.y + b.h
-                ) {
-                    blocked = true;
-                    break;
-                }
+            const y =
+                Utils.randInt(
+                    100,
+                    H - 100
+                );
+
+
+            if (
+                this.pointInBuilding(
+                    x,
+                    y
+                )
+            ) {
+
+                continue;
             }
 
-            if (!blocked) {
-                this.lootSpawnPoints.push({
-                    x: lx,
-                    y: ly,
-                    indoor: false,
-                });
+
+            if (
+                this.pointInWall(
+                    x,
+                    y
+                )
+            ) {
+
+                continue;
             }
+
+
+            this.lootSpawnPoints.push({
+
+                x,
+                y,
+
+                indoor: false,
+            });
         }
 
-        // ─────────────────────────────────────────────────────
-        // SPAWN POINTS
-        // ─────────────────────────────────────────────────────
 
-        for (let i = 0; i < 40; i++) {
+        // ═════════════════════════════════════════════
+        // SPAWN POINTS
+        // ═════════════════════════════════════════════
+
+        for (
+            let i = 0;
+            i < 60;
+            i++
+        ) {
+
             const angle =
-                (i / 40) *
+                (
+                    i / 60
+                ) *
                 Math.PI *
                 2;
 
-            const dist =
+
+            const distance =
                 Utils.randFloat(
-                    600,
-                    1600
+                    650,
+                    1750
                 );
 
-            const sx =
+
+            const x =
                 W / 2 +
                 Math.cos(angle) *
-                dist;
+                distance;
 
-            const sy =
+
+            const y =
                 H / 2 +
                 Math.sin(angle) *
-                dist;
+                distance;
+
 
             if (
-                sx > 100 &&
-                sx < W - 100 &&
-                sy > 100 &&
-                sy < H - 100 &&
-                !this.pointInWall(sx, sy)
+                x < 100 ||
+                x > W - 100 ||
+                y < 100 ||
+                y > H - 100
             ) {
-                this.spawnPoints.push({
-                    x: sx,
-                    y: sy,
-                });
+
+                continue;
             }
+
+
+            if (
+                this.pointInWall(
+                    x,
+                    y
+                )
+            ) {
+
+                continue;
+            }
+
+
+            this.spawnPoints.push({
+
+                x,
+                y,
+            });
         }
 
-        // Build cached bounds for LOS
+
+        // Emergency spawn fallback
+        if (
+            this.spawnPoints.length === 0
+        ) {
+
+            this.spawnPoints.push({
+
+                x: W / 2,
+                y: H / 2,
+            });
+        }
+
+
         this._rebuildWallCache();
     },
 
-    // ─────────────────────────────────────────────────────────
-    // POSITION VALIDATION
-    // ─────────────────────────────────────────────────────────
+
+    // ═════════════════════════════════════════════════════
+    // POSITION BLOCKED
+    // ═════════════════════════════════════════════════════
 
     _positionBlocked(
         x,
         y,
         radius,
-        checkRoads
+        checkRoads = false
     ) {
-        if (checkRoads) {
-            for (const road of this.roads) {
+
+        if (
+            checkRoads
+        ) {
+
+            for (
+                const road of this.roads
+            ) {
+
                 if (
                     Utils.circleRectCollision(
                         x,
@@ -492,218 +775,339 @@ const MapSystem = {
                         road.h
                     )
                 ) {
+
                     return true;
                 }
             }
         }
 
-        for (const b of this.buildings) {
+
+        for (
+            const building
+            of this.buildings
+        ) {
+
             if (
                 Utils.circleRectCollision(
                     x,
                     y,
                     radius,
-                    b.x,
-                    b.y,
-                    b.w,
-                    b.h
+                    building.x,
+                    building.y,
+                    building.w,
+                    building.h
                 )
             ) {
+
                 return true;
             }
         }
 
+
         return false;
     },
 
-    // ─────────────────────────────────────────────────────────
-    // BUILDING WALLS
-    // ─────────────────────────────────────────────────────────
 
-    _createBuildingWalls(b) {
-        const wallThick = 8;
+    // ═════════════════════════════════════════════════════
+    // BUILDING WALLS
+    // ═════════════════════════════════════════════════════
+
+    _createBuildingWalls(building) {
+
+        const thickness = 8;
+
         const doorSize = 30;
 
-        const sides = [
+
+        const walls = [
+
             {
-                x: b.x,
-                y: b.y,
-                w: b.w,
-                h: wallThick,
                 side: 0,
+
+                x:
+                    building.x,
+
+                y:
+                    building.y,
+
+                w:
+                    building.w,
+
+                h:
+                    thickness,
             },
 
             {
-                x: b.x + b.w - wallThick,
-                y: b.y,
-                w: wallThick,
-                h: b.h,
                 side: 1,
+
+                x:
+                    building.x +
+                    building.w -
+                    thickness,
+
+                y:
+                    building.y,
+
+                w:
+                    thickness,
+
+                h:
+                    building.h,
             },
 
             {
-                x: b.x,
-                y: b.y + b.h - wallThick,
-                w: b.w,
-                h: wallThick,
                 side: 2,
+
+                x:
+                    building.x,
+
+                y:
+                    building.y +
+                    building.h -
+                    thickness,
+
+                w:
+                    building.w,
+
+                h:
+                    thickness,
             },
 
             {
-                x: b.x,
-                y: b.y,
-                w: wallThick,
-                h: b.h,
                 side: 3,
+
+                x:
+                    building.x,
+
+                y:
+                    building.y,
+
+                w:
+                    thickness,
+
+                h:
+                    building.h,
             },
         ];
 
-        for (const wall of sides) {
+
+        for (
+            const wall of walls
+        ) {
+
             if (
-                b.hasDoor &&
-                wall.side === b.doorSide
+                !building.hasDoor ||
+                wall.side !==
+                building.doorSide
             ) {
-                // Horizontal wall
-                if (
-                    wall.side === 0 ||
-                    wall.side === 2
-                ) {
-                    const gapStart =
-                        b.x +
-                        b.w / 2 -
-                        doorSize / 2;
 
-                    const gapEnd =
-                        gapStart +
-                        doorSize;
-
-                    if (
-                        gapStart -
-                        b.x >
-                        wallThick
-                    ) {
-                        this.walls.push({
-                            x: b.x,
-                            y: wall.y,
-                            w:
-                                gapStart -
-                                b.x,
-                            h: wallThick,
-                        });
-                    }
-
-                    if (
-                        b.x +
-                        b.w -
-                        gapEnd >
-                        wallThick
-                    ) {
-                        this.walls.push({
-                            x: gapEnd,
-                            y: wall.y,
-                            w:
-                                b.x +
-                                b.w -
-                                gapEnd,
-                            h: wallThick,
-                        });
-                    }
-                }
-
-                // Vertical wall
-                else {
-                    const gapStart =
-                        b.y +
-                        b.h / 2 -
-                        doorSize / 2;
-
-                    const gapEnd =
-                        gapStart +
-                        doorSize;
-
-                    if (
-                        gapStart -
-                        b.y >
-                        wallThick
-                    ) {
-                        this.walls.push({
-                            x: wall.x,
-                            y: b.y,
-                            w: wallThick,
-                            h:
-                                gapStart -
-                                b.y,
-                        });
-                    }
-
-                    if (
-                        b.y +
-                        b.h -
-                        gapEnd >
-                        wallThick
-                    ) {
-                        this.walls.push({
-                            x: wall.x,
-                            y: gapEnd,
-                            w: wallThick,
-                            h:
-                                b.y +
-                                b.h -
-                                gapEnd,
-                        });
-                    }
-                }
-            } else {
                 this.walls.push({
                     x: wall.x,
                     y: wall.y,
                     w: wall.w,
                     h: wall.h,
                 });
+
+                continue;
+            }
+
+
+            // Horizontal wall
+            if (
+                wall.side === 0 ||
+                wall.side === 2
+            ) {
+
+                const gapStart =
+                    building.x +
+                    building.w / 2 -
+                    doorSize / 2;
+
+
+                const gapEnd =
+                    gapStart +
+                    doorSize;
+
+
+                if (
+                    gapStart >
+                    building.x
+                ) {
+
+                    this.walls.push({
+
+                        x:
+                            building.x,
+
+                        y:
+                            wall.y,
+
+                        w:
+                            gapStart -
+                            building.x,
+
+                        h:
+                            thickness,
+                    });
+                }
+
+
+                if (
+                    gapEnd <
+                    building.x +
+                    building.w
+                ) {
+
+                    this.walls.push({
+
+                        x:
+                            gapEnd,
+
+                        y:
+                            wall.y,
+
+                        w:
+                            building.x +
+                            building.w -
+                            gapEnd,
+
+                        h:
+                            thickness,
+                    });
+                }
+
+            } else {
+
+                // Vertical wall
+
+                const gapStart =
+                    building.y +
+                    building.h / 2 -
+                    doorSize / 2;
+
+
+                const gapEnd =
+                    gapStart +
+                    doorSize;
+
+
+                if (
+                    gapStart >
+                    building.y
+                ) {
+
+                    this.walls.push({
+
+                        x:
+                            wall.x,
+
+                        y:
+                            building.y,
+
+                        w:
+                            thickness,
+
+                        h:
+                            gapStart -
+                            building.y,
+                    });
+                }
+
+
+                if (
+                    gapEnd <
+                    building.y +
+                    building.h
+                ) {
+
+                    this.walls.push({
+
+                        x:
+                            wall.x,
+
+                        y:
+                            gapEnd,
+
+                        w:
+                            thickness,
+
+                        h:
+                            building.y +
+                            building.h -
+                            gapEnd,
+                    });
+                }
             }
         }
     },
 
-    // ─────────────────────────────────────────────────────────
+
+    // ═════════════════════════════════════════════════════
     // WALL CACHE
-    // ─────────────────────────────────────────────────────────
+    // ═════════════════════════════════════════════════════
 
     _rebuildWallCache() {
+
         this._wallBounds =
-            this.walls.map(wall => ({
-                x1: wall.x,
-                y1: wall.y,
-                x2: wall.x + wall.w,
-                y2: wall.y + wall.h,
-                wall,
-            }));
+            this.walls.map(
+                wall => ({
+
+                    x1:
+                        wall.x,
+
+                    y1:
+                        wall.y,
+
+                    x2:
+                        wall.x +
+                        wall.w,
+
+                    y2:
+                        wall.y +
+                        wall.h,
+
+                    wall,
+                })
+            );
     },
 
-    // ─────────────────────────────────────────────────────────
+
+    // ═════════════════════════════════════════════════════
     // COLLISION
-    // ─────────────────────────────────────────────────────────
+    // ═════════════════════════════════════════════════════
 
     resolveCollision(
         cx,
         cy,
         radius
     ) {
+
         let pushX = 0;
         let pushY = 0;
 
-        // Multiple passes make corners more reliable
-        for (let pass = 0; pass < 2; pass++) {
-            for (const wall of this.walls) {
-                const testX =
+
+        // Two passes help with corners
+        for (
+            let pass = 0;
+            pass < 2;
+            pass++
+        ) {
+
+            for (
+                const wall of this.walls
+            ) {
+
+                const x =
                     cx + pushX;
 
-                const testY =
+                const y =
                     cy + pushY;
+
 
                 if (
                     !Utils.circleRectCollision(
-                        testX,
-                        testY,
+                        x,
+                        y,
                         radius,
                         wall.x,
                         wall.y,
@@ -711,79 +1115,103 @@ const MapSystem = {
                         wall.h
                     )
                 ) {
+
                     continue;
                 }
 
+
                 const closestX =
                     Utils.clamp(
-                        testX,
+                        x,
                         wall.x,
-                        wall.x + wall.w
+                        wall.x +
+                        wall.w
                     );
+
 
                 const closestY =
                     Utils.clamp(
-                        testY,
+                        y,
                         wall.y,
-                        wall.y + wall.h
+                        wall.y +
+                        wall.h
                     );
 
+
                 const dx =
-                    testX - closestX;
+                    x -
+                    closestX;
+
 
                 const dy =
-                    testY - closestY;
+                    y -
+                    closestY;
 
-                const dist =
+
+                const distance =
                     Math.sqrt(
                         dx * dx +
                         dy * dy
                     );
 
+
                 if (
-                    dist < radius &&
-                    dist > 0.0001
+                    distance > 0.0001 &&
+                    distance < radius
                 ) {
+
                     const overlap =
-                        radius - dist;
+                        radius -
+                        distance;
+
 
                     pushX +=
-                        (dx / dist) *
+                        (
+                            dx /
+                            distance
+                        ) *
                         overlap;
 
+
                     pushY +=
-                        (dy / dist) *
+                        (
+                            dy /
+                            distance
+                        ) *
                         overlap;
-                } else if (
-                    dist <= 0.0001
-                ) {
-                    // Entity is completely inside wall.
-                    // Push toward closest wall edge.
+
+                } else {
+
+                    // Entity is inside a wall.
                     const left =
                         Math.abs(
-                            testX -
+                            x -
                             wall.x
                         );
+
 
                     const right =
                         Math.abs(
                             wall.x +
                             wall.w -
-                            testX
+                            x
                         );
+
 
                     const top =
                         Math.abs(
-                            testY -
+                            y -
                             wall.y
                         );
+
 
                     const bottom =
                         Math.abs(
                             wall.y +
                             wall.h -
-                            testY
+                            y
                         );
+
 
                     const smallest =
                         Math.min(
@@ -793,22 +1221,30 @@ const MapSystem = {
                             bottom
                         );
 
+
                     if (
                         smallest === left
                     ) {
+
                         pushX -=
                             radius;
+
                     } else if (
                         smallest === right
                     ) {
+
                         pushX +=
                             radius;
+
                     } else if (
                         smallest === top
                     ) {
+
                         pushY -=
                             radius;
+
                     } else {
+
                         pushY +=
                             radius;
                     }
@@ -816,34 +1252,86 @@ const MapSystem = {
             }
         }
 
+
         return {
+
             x: pushX,
+
             y: pushY,
         };
     },
 
-    // ─────────────────────────────────────────────────────────
-    // POINT COLLISION
-    // ─────────────────────────────────────────────────────────
 
-    pointInWall(px, py) {
-        for (const wall of this.walls) {
+    // ═════════════════════════════════════════════════════
+    // POINT IN WALL
+    // ═════════════════════════════════════════════════════
+
+    pointInWall(
+        px,
+        py
+    ) {
+
+        for (
+            const wall of this.walls
+        ) {
+
             if (
                 px >= wall.x &&
-                px <= wall.x + wall.w &&
+                px <=
+                    wall.x +
+                    wall.w &&
                 py >= wall.y &&
-                py <= wall.y + wall.h
+                py <=
+                    wall.y +
+                    wall.h
             ) {
+
                 return true;
             }
         }
 
+
         return false;
     },
 
-    // ─────────────────────────────────────────────────────────
+
+    // ═════════════════════════════════════════════════════
+    // POINT IN BUILDING
+    // ═════════════════════════════════════════════════════
+
+    pointInBuilding(
+        px,
+        py
+    ) {
+
+        for (
+            const building
+            of this.buildings
+        ) {
+
+            if (
+                px >= building.x &&
+                px <=
+                    building.x +
+                    building.w &&
+                py >= building.y &&
+                py <=
+                    building.y +
+                    building.h
+            ) {
+
+                return true;
+            }
+        }
+
+
+        return false;
+    },
+
+
+    // ═════════════════════════════════════════════════════
     // LINE OF SIGHT
-    // ─────────────────────────────────────────────────────────
+    // ═════════════════════════════════════════════════════
 
     hasLineOfSight(
         x1,
@@ -851,27 +1339,51 @@ const MapSystem = {
         x2,
         y2
     ) {
-        // Same point
+
         if (
-            Math.abs(x1 - x2) < 0.001 &&
-            Math.abs(y1 - y2) < 0.001
+            Math.abs(x1 - x2) <
+                0.001 &&
+            Math.abs(y1 - y2) <
+                0.001
         ) {
+
             return true;
         }
 
+
         const minX =
-            Math.min(x1, x2);
+            Math.min(
+                x1,
+                x2
+            );
+
 
         const maxX =
-            Math.max(x1, x2);
+            Math.max(
+                x1,
+                x2
+            );
+
 
         const minY =
-            Math.min(y1, y2);
+            Math.min(
+                y1,
+                y2
+            );
+
 
         const maxY =
-            Math.max(y1, y2);
+            Math.max(
+                y1,
+                y2
+            );
 
-        for (const bounds of this._wallBounds) {
+
+        for (
+            const bounds
+            of this._wallBounds
+        ) {
+
             // Fast AABB rejection
             if (
                 bounds.x2 < minX ||
@@ -879,8 +1391,10 @@ const MapSystem = {
                 bounds.y2 < minY ||
                 bounds.y1 > maxY
             ) {
+
                 continue;
             }
+
 
             if (
                 Utils.lineRectIntersection(
@@ -891,26 +1405,25 @@ const MapSystem = {
                     bounds.x1,
                     bounds.y1,
                     bounds.x2 -
-                    bounds.x1,
+                        bounds.x1,
                     bounds.y2 -
-                    bounds.y1
+                        bounds.y1
                 )
             ) {
+
                 return false;
             }
         }
 
+
         return true;
     },
 
-    // ─────────────────────────────────────────────────────────
-    // FIND COVER
-    // ─────────────────────────────────────────────────────────
 
-    /**
-     * Find a nearby position that is hidden from a target.
-     * Useful for smarter AI later.
-     */
+    // ═════════════════════════════════════════════════════
+    // FIND COVER
+    // ═════════════════════════════════════════════════════
+
     findCoverPosition(
         x,
         y,
@@ -918,40 +1431,61 @@ const MapSystem = {
         targetY,
         searchRadius = 180
     ) {
+
         const candidates = [];
 
-        const steps = 12;
+        const samples = 16;
 
-        for (let i = 0; i < steps; i++) {
+
+        for (
+            let i = 0;
+            i < samples;
+            i++
+        ) {
+
             const angle =
-                (i / steps) *
+                (
+                    i /
+                    samples
+                ) *
                 Math.PI *
                 2;
 
+
             const distance =
                 Utils.randFloat(
-                    searchRadius * 0.5,
+                    searchRadius *
+                        0.45,
                     searchRadius
                 );
+
 
             const px =
                 x +
                 Math.cos(angle) *
                 distance;
 
+
             const py =
                 y +
                 Math.sin(angle) *
                 distance;
 
+
             if (
                 px < 50 ||
-                px > GAME.MAP_WIDTH - 50 ||
+                px >
+                    GAME.MAP_WIDTH -
+                    50 ||
                 py < 50 ||
-                py > GAME.MAP_HEIGHT - 50
+                py >
+                    GAME.MAP_HEIGHT -
+                    50
             ) {
+
                 continue;
             }
+
 
             if (
                 this.pointInWall(
@@ -959,79 +1493,104 @@ const MapSystem = {
                     py
                 )
             ) {
+
                 continue;
             }
 
-            const blocked =
+
+            if (
                 !this.hasLineOfSight(
                     px,
                     py,
                     targetX,
                     targetY
-                );
+                )
+            ) {
 
-            if (blocked) {
                 candidates.push({
+
                     x: px,
+
                     y: py,
+
+                    distance:
+                        Utils.distance(
+                            x,
+                            y,
+                            px,
+                            py
+                        ),
                 });
             }
         }
 
-        if (candidates.length === 0) {
+
+        if (
+            candidates.length === 0
+        ) {
+
             return null;
         }
 
-        // Closest usable cover
+
         candidates.sort(
-            (a, b) =>
-                Utils.distance(
-                    x,
-                    y,
-                    a.x,
-                    a.y
-                ) -
-                Utils.distance(
-                    x,
-                    y,
-                    b.x,
-                    b.y
-                )
+            (
+                a,
+                b
+            ) =>
+                a.distance -
+                b.distance
         );
 
-        return candidates[0];
+
+        return {
+
+            x:
+                candidates[0].x,
+
+            y:
+                candidates[0].y,
+        };
     },
 
-    // ─────────────────────────────────────────────────────────
-    // RENDER
-    // ─────────────────────────────────────────────────────────
 
-    render(ctx, camera) {
+    // ═════════════════════════════════════════════════════
+    // RENDER
+    // ═════════════════════════════════════════════════════
+
+    render(
+        ctx,
+        camera
+    ) {
+
         const W =
             GAME.MAP_WIDTH;
 
         const H =
             GAME.MAP_HEIGHT;
 
-        // Viewport culling
+
+        // Viewport
         const vx =
-            camera.x - 50;
+            camera.x - 100;
 
         const vy =
-            camera.y - 50;
+            camera.y - 100;
 
         const vw =
-            camera.screenW + 100;
+            camera.screenW + 200;
 
         const vh =
-            camera.screenH + 100;
+            camera.screenH + 200;
 
-        // ─────────────────────────────────────────────────────
-        // GRASS
-        // ─────────────────────────────────────────────────────
+
+        // ═════════════════════════════════════════════
+        // BASE GRASS
+        // ═════════════════════════════════════════════
 
         ctx.fillStyle =
             GAME.COLORS.GRASS;
+
 
         ctx.fillRect(
             0,
@@ -1040,47 +1599,62 @@ const MapSystem = {
             H
         );
 
+
+        // Grass pattern
         ctx.fillStyle =
             GAME.COLORS.GRASS_ALT;
 
-        const gsX =
+
+        const startX =
             Math.max(
                 0,
-                Math.floor(vx / 100) * 100
+                Math.floor(
+                    vx / 100
+                ) * 100
             );
 
-        const gsY =
+
+        const startY =
             Math.max(
                 0,
-                Math.floor(vy / 100) * 100
+                Math.floor(
+                    vy / 100
+                ) * 100
             );
+
 
         for (
-            let gx = gsX;
-            gx <
-            Math.min(
-                W,
-                vx + vw + 100
-            );
-            gx += 100
-        ) {
-            for (
-                let gy = gsY;
-                gy <
+            let x = startX;
+            x <
                 Math.min(
-                    H,
-                    vy + vh + 100
+                    W,
+                    vx + vw + 100
                 );
-                gy += 100
+            x += 100
+        ) {
+
+            for (
+                let y = startY;
+                y <
+                    Math.min(
+                        H,
+                        vy + vh + 100
+                    );
+                y += 100
             ) {
+
                 if (
-                    (gx + gy) %
-                    200 ===
+                    (
+                        x / 100 +
+                        y / 100
+                    ) %
+                    2 ===
                     0
                 ) {
+
                     ctx.fillRect(
-                        gx,
-                        gy,
+                        x,
+                        y,
                         100,
                         100
                     );
@@ -1088,14 +1662,36 @@ const MapSystem = {
             }
         }
 
-        // ─────────────────────────────────────────────────────
+
+        // ═════════════════════════════════════════════
         // ROADS
-        // ─────────────────────────────────────────────────────
+        // ═════════════════════════════════════════════
 
         ctx.fillStyle =
             GAME.COLORS.ROAD;
 
-        for (const road of this.roads) {
+
+        for (
+            const road of this.roads
+        ) {
+
+            if (
+                road.x +
+                    road.w <
+                    vx ||
+                road.x >
+                    vx + vw ||
+                road.y +
+                    road.h <
+                    vy ||
+                road.y >
+                    vy + vh
+            ) {
+
+                continue;
+            }
+
+
             ctx.fillRect(
                 road.x,
                 road.y,
@@ -1104,237 +1700,361 @@ const MapSystem = {
             );
         }
 
+
+        // Road center markings
+        ctx.save();
+
         ctx.strokeStyle =
             GAME.COLORS.ROAD_LINE;
 
         ctx.lineWidth = 2;
 
         ctx.setLineDash([
-            15,
-            15,
+            18,
+            18,
         ]);
 
-        for (const road of this.roads) {
+
+        for (
+            const road of this.roads
+        ) {
+
             ctx.beginPath();
 
+
             if (
-                road.w >
+                road.w >=
                 road.h
             ) {
+
                 ctx.moveTo(
                     road.x,
                     road.y +
-                    road.h / 2
+                        road.h / 2
                 );
+
 
                 ctx.lineTo(
                     road.x +
-                    road.w,
+                        road.w,
                     road.y +
-                    road.h / 2
+                        road.h / 2
                 );
+
             } else {
+
                 ctx.moveTo(
                     road.x +
-                    road.w / 2,
+                        road.w / 2,
                     road.y
                 );
 
+
                 ctx.lineTo(
                     road.x +
-                    road.w / 2,
+                        road.w / 2,
                     road.y +
-                    road.h
+                        road.h
                 );
             }
+
 
             ctx.stroke();
         }
 
+
         ctx.setLineDash([]);
 
-        // ─────────────────────────────────────────────────────
-        // BUILDINGS
-        // ─────────────────────────────────────────────────────
+        ctx.restore();
 
-        for (const b of this.buildings) {
+
+        // ═════════════════════════════════════════════
+        // BUILDINGS
+        // ═════════════════════════════════════════════
+
+        for (
+            const building
+            of this.buildings
+        ) {
+
             if (
-                b.x + b.w < vx ||
-                b.x > vx + vw ||
-                b.y + b.h < vy ||
-                b.y > vy + vh
+                building.x +
+                    building.w <
+                    vx ||
+                building.x >
+                    vx + vw ||
+                building.y +
+                    building.h <
+                    vy ||
+                building.y >
+                    vy + vh
             ) {
+
                 continue;
             }
+
+
+            // Shadow
+            ctx.fillStyle =
+                'rgba(0,0,0,0.20)';
+
+
+            ctx.fillRect(
+                building.x + 5,
+                building.y + 7,
+                building.w,
+                building.h
+            );
+
 
             // Floor
             ctx.fillStyle =
-                b.floorColor;
+                building.floorColor;
+
 
             ctx.fillRect(
-                b.x + 8,
-                b.y + 8,
-                b.w - 16,
-                b.h - 16
+                building.x + 8,
+                building.y + 8,
+                building.w - 16,
+                building.h - 16
             );
+
 
             // Wall
             ctx.fillStyle =
-                b.color;
+                building.color;
+
+
+            ctx.strokeStyle =
+                building.color;
+
 
             ctx.lineWidth = 8;
 
-            ctx.strokeStyle =
-                b.color;
 
             ctx.strokeRect(
-                b.x,
-                b.y,
-                b.w,
-                b.h
+                building.x,
+                building.y,
+                building.w,
+                building.h
             );
 
+
             // Door
+            const doorSize = 30;
+
+
             ctx.fillStyle =
                 GAME.COLORS.BUILDING_FLOOR;
 
-            const doorSize = 30;
 
-            switch (b.doorSide) {
+            switch (
+                building.doorSide
+            ) {
+
                 case 0:
+
                     ctx.fillRect(
-                        b.x +
-                        b.w / 2 -
-                        doorSize / 2,
-                        b.y - 2,
+                        building.x +
+                            building.w / 2 -
+                            doorSize / 2,
+
+                        building.y - 4,
+
                         doorSize,
+
                         12
                     );
+
                     break;
+
 
                 case 1:
+
                     ctx.fillRect(
-                        b.x +
-                        b.w -
-                        10,
-                        b.y +
-                        b.h / 2 -
-                        doorSize / 2,
+                        building.x +
+                            building.w -
+                            8,
+
+                        building.y +
+                            building.h / 2 -
+                            doorSize / 2,
+
                         12,
+
                         doorSize
                     );
+
                     break;
+
 
                 case 2:
+
                     ctx.fillRect(
-                        b.x +
-                        b.w / 2 -
-                        doorSize / 2,
-                        b.y +
-                        b.h -
-                        10,
+                        building.x +
+                            building.w / 2 -
+                            doorSize / 2,
+
+                        building.y +
+                            building.h -
+                            8,
+
                         doorSize,
+
                         12
                     );
+
                     break;
+
 
                 case 3:
+
                     ctx.fillRect(
-                        b.x - 2,
-                        b.y +
-                        b.h / 2 -
-                        doorSize / 2,
+                        building.x - 4,
+
+                        building.y +
+                            building.h / 2 -
+                            doorSize / 2,
+
                         12,
+
                         doorSize
                     );
+
                     break;
             }
+
+
+            // Small rooftop detail
+            ctx.fillStyle =
+                'rgba(0,0,0,0.10)';
+
+
+            ctx.fillRect(
+                building.x + 14,
+                building.y + 14,
+                Math.max(
+                    8,
+                    building.w - 28
+                ),
+                3
+            );
         }
 
-        // ─────────────────────────────────────────────────────
-        // VEHICLES
-        // ─────────────────────────────────────────────────────
 
-        for (const v of this.vehicles) {
+        // ═════════════════════════════════════════════
+        // VEHICLES
+        // ═════════════════════════════════════════════
+
+        for (
+            const vehicle
+            of this.vehicles
+        ) {
+
             if (
-                v.x + 50 < vx ||
-                v.x - 50 > vx + vw ||
-                v.y + 50 < vy ||
-                v.y - 50 > vy + vh
+                vehicle.x + 55 <
+                    vx ||
+                vehicle.x - 55 >
+                    vx + vw ||
+                vehicle.y + 55 <
+                    vy ||
+                vehicle.y - 55 >
+                    vy + vh
             ) {
+
                 continue;
             }
+
 
             const drawn =
                 AssetManager.drawVehicle(
                     ctx,
-                    v.type,
-                    v.x,
-                    v.y,
-                    v.w,
-                    v.h,
-                    v.angle
+                    vehicle.type,
+                    vehicle.x,
+                    vehicle.y,
+                    vehicle.w,
+                    vehicle.h,
+                    vehicle.angle
                 );
 
-            if (!drawn) {
+
+            if (
+                !drawn
+            ) {
+
                 ctx.save();
 
+
                 ctx.translate(
-                    v.x,
-                    v.y
+                    vehicle.x,
+                    vehicle.y
                 );
 
+
                 ctx.rotate(
-                    v.angle
+                    vehicle.angle
                 );
+
 
                 ctx.fillStyle =
                     '#37474f';
 
+
                 ctx.fillRect(
-                    -v.w / 2,
-                    -v.h / 2,
-                    v.w,
-                    v.h
+                    -vehicle.w / 2,
+                    -vehicle.h / 2,
+                    vehicle.w,
+                    vehicle.h
                 );
+
 
                 ctx.strokeStyle =
                     '#263238';
 
+
                 ctx.lineWidth = 2;
 
+
                 ctx.strokeRect(
-                    -v.w / 2,
-                    -v.h / 2,
-                    v.w,
-                    v.h
+                    -vehicle.w / 2,
+                    -vehicle.h / 2,
+                    vehicle.w,
+                    vehicle.h
                 );
+
 
                 ctx.restore();
             }
         }
 
-        // ─────────────────────────────────────────────────────
-        // ROCKS
-        // ─────────────────────────────────────────────────────
 
-        for (const rock of this.rocks) {
+        // ═════════════════════════════════════════════
+        // ROCKS
+        // ═════════════════════════════════════════════
+
+        for (
+            const rock
+            of this.rocks
+        ) {
+
             if (
                 rock.x +
-                rock.radius <
-                vx ||
+                    rock.radius <
+                    vx ||
                 rock.x -
-                rock.radius >
-                vx + vw ||
+                    rock.radius >
+                    vx + vw ||
                 rock.y +
-                rock.radius <
-                vy ||
+                    rock.radius <
+                    vy ||
                 rock.y -
-                rock.radius >
-                vy + vh
+                    rock.radius >
+                    vy + vh
             ) {
+
                 continue;
             }
+
 
             const drawn =
                 AssetManager.drawRock(
@@ -1344,8 +2064,13 @@ const MapSystem = {
                     rock.radius
                 );
 
-            if (!drawn) {
+
+            if (
+                !drawn
+            ) {
+
                 ctx.beginPath();
+
 
                 ctx.arc(
                     rock.x,
@@ -1355,41 +2080,53 @@ const MapSystem = {
                     Math.PI * 2
                 );
 
+
                 ctx.fillStyle =
                     GAME.COLORS.ROCK;
 
+
                 ctx.fill();
+
 
                 ctx.strokeStyle =
                     '#555';
 
+
                 ctx.lineWidth = 2;
+
 
                 ctx.stroke();
             }
         }
 
-        // ─────────────────────────────────────────────────────
-        // TREES
-        // ─────────────────────────────────────────────────────
 
-        for (const tree of this.trees) {
+        // ═════════════════════════════════════════════
+        // TREES
+        // ═════════════════════════════════════════════
+
+        for (
+            const tree
+            of this.trees
+        ) {
+
             if (
                 tree.x +
-                tree.radius <
-                vx ||
+                    tree.radius <
+                    vx ||
                 tree.x -
-                tree.radius >
-                vx + vw ||
+                    tree.radius >
+                    vx + vw ||
                 tree.y +
-                tree.radius <
-                vy ||
+                    tree.radius <
+                    vy ||
                 tree.y -
-                tree.radius >
-                vy + vh
+                    tree.radius >
+                    vy + vh
             ) {
+
                 continue;
             }
+
 
             const drawn =
                 AssetManager.drawTree(
@@ -1399,26 +2136,34 @@ const MapSystem = {
                     tree.radius
                 );
 
-            if (!drawn) {
+
+            if (
+                !drawn
+            ) {
+
                 // Trunk
                 ctx.beginPath();
+
 
                 ctx.arc(
                     tree.x,
                     tree.y,
-                    tree.radius *
-                    0.35,
+                    tree.radius * 0.35,
                     0,
                     Math.PI * 2
                 );
 
+
                 ctx.fillStyle =
                     GAME.COLORS.TREE_TRUNK;
 
+
                 ctx.fill();
+
 
                 // Canopy
                 ctx.beginPath();
+
 
                 ctx.arc(
                     tree.x,
@@ -1428,25 +2173,37 @@ const MapSystem = {
                     Math.PI * 2
                 );
 
+
                 ctx.fillStyle =
                     GAME.COLORS.TREE;
 
-                ctx.globalAlpha = 0.85;
+
+                ctx.globalAlpha =
+                    0.85;
+
 
                 ctx.fill();
 
-                ctx.globalAlpha = 1;
+
+                ctx.globalAlpha =
+                    1;
             }
         }
 
-        // ─────────────────────────────────────────────────────
+
+        // ═════════════════════════════════════════════
         // MAP BORDER
-        // ─────────────────────────────────────────────────────
+        // ═════════════════════════════════════════════
+
+        ctx.save();
+
 
         ctx.strokeStyle =
             '#ff1744';
 
+
         ctx.lineWidth = 6;
+
 
         ctx.strokeRect(
             0,
@@ -1454,5 +2211,8 @@ const MapSystem = {
             W,
             H
         );
+
+
+        ctx.restore();
     },
 };

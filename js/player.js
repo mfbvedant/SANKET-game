@@ -1,10 +1,11 @@
 /* ═══════════════════════════════════════════════════════════
    SURVIVOR ZONE — Player Controller
    Movement, aiming, shooting, inventory interaction,
-   animation state and player rendering.
+   animation state and animated soldier rendering.
    ═══════════════════════════════════════════════════════════ */
 
 const Player = {
+
     id: 'player',
 
     // ─────────────────────────────────────────────
@@ -54,11 +55,35 @@ const Player = {
 
     movementAngle: 0,
 
-    // Small weapon recoil amount
+    /*
+     * Temporary animation overrides.
+     *
+     * pickupAnimationUntil:
+     * Used by the loot system.
+     *
+     * deathAnimationUntil:
+     * Keeps the final death animation visible
+     * for a short period after elimination.
+     */
+    pickupAnimationUntil: 0,
+    pickupAnimationTime: 0,
+
+    deathAnimationUntil: 0,
+    deathAnimationTime: 0,
+
+    // ─────────────────────────────────────────────
+    // COMBAT VISUALS
+    // ─────────────────────────────────────────────
+
     recoilAmount: 0,
 
-    // Weapon kick animation
     weaponKick: 0,
+
+    // ─────────────────────────────────────────────
+    // DAMAGE FEEDBACK
+    // ─────────────────────────────────────────────
+
+    hurtAnimationUntil: 0,
 
     // ─────────────────────────────────────────────
     // FOOTSTEP TIMER
@@ -77,44 +102,51 @@ const Player = {
 
     mouseDown: false,
 
-    /**
-     * Initialize the player.
-     */
-    init(spawnX, spawnY) {
 
-        // Position
+    /* =========================================================
+       INITIALIZE
+       ========================================================= */
+
+    init(
+        spawnX,
+        spawnY
+    ) {
+
         this.x = spawnX;
         this.y = spawnY;
 
-        // Movement
         this.velocityX = 0;
         this.velocityY = 0;
 
-        // Aim
         this.aimAngle = 0;
 
-        // Components
         this.healthComp =
             HealthSystem.create(
                 GAME.PLAYER_MAX_HEALTH,
                 GAME.PLAYER_MAX_ARMOR
             );
 
-        // 100 starting armor vest
+
+        /*
+         * Starting armor.
+         */
         HealthSystem.addArmor(
             this.healthComp,
             100
         );
 
+
         this.inventory =
             InventorySystem.create();
 
-        // Gameplay state
+
+        // Gameplay
         this.kills = 0;
         this.isAlive = true;
         this.isShooting = false;
         this.showInventory = false;
         this.killedBy = null;
+
 
         // Animation
         this.animationState = 'idle';
@@ -123,19 +155,32 @@ const Player = {
 
         this.movementAngle = 0;
 
+        this.pickupAnimationUntil = 0;
+        this.pickupAnimationTime = 0;
+
+        this.deathAnimationUntil = 0;
+        this.deathAnimationTime = 0;
+
+        this.hurtAnimationUntil = 0;
+
+
+        // Combat visuals
         this.recoilAmount = 0;
         this.weaponKick = 0;
 
+
         // Footsteps
         this.footstepTimer = 0;
+
 
         // Input
         this.keys = {};
         this.mouseDown = false;
 
-        // ─────────────────────────────────────────────
-        // STARTING EQUIPMENT
-        // ─────────────────────────────────────────────
+
+        /* =====================================================
+           STARTING EQUIPMENT
+           ===================================================== */
 
         const pistol =
             WeaponSystem.create(
@@ -143,10 +188,12 @@ const Player = {
                 'UNCOMMON'
             );
 
+
         InventorySystem.addWeapon(
             this.inventory,
             pistol
         );
+
 
         InventorySystem.addAmmo(
             this.inventory,
@@ -154,19 +201,24 @@ const Player = {
             90
         );
 
+
         InventorySystem.addAmmo(
             this.inventory,
             'medium',
             60
         );
 
-        // Starting heals
+
+        /*
+         * Starting healing items.
+         */
         InventorySystem.addHealItem(
             this.inventory,
             75,
             'UNCOMMON',
             'First Aid Kit'
         );
+
 
         InventorySystem.addHealItem(
             this.inventory,
@@ -175,7 +227,10 @@ const Player = {
             'First Aid Kit'
         );
 
-        // Starting armor
+
+        /*
+         * Starting armor item.
+         */
         InventorySystem.addArmorItem(
             this.inventory,
             50,
@@ -184,161 +239,214 @@ const Player = {
         );
     },
 
-    /**
-     * Bind input listeners.
-     */
+
+    /* =========================================================
+       INPUT
+       ========================================================= */
+
     bindInput(canvas) {
 
-        // ─────────────────────────────────────────────
-        // KEY DOWN
-        // ─────────────────────────────────────────────
+        /* -----------------------------------------------------
+           KEY DOWN
+           ----------------------------------------------------- */
 
-        window.addEventListener('keydown', (e) => {
+        window.addEventListener(
+            'keydown',
+            (e) => {
 
-            const key =
-                e.key.toLowerCase();
+                const key =
+                    e.key.toLowerCase();
 
-            // Store key
-            this.keys[key] = true;
 
-            // Don't process gameplay controls
-            // while paused or outside gameplay.
-            if (
-                typeof Game !== 'undefined' &&
-                Game.state !== 'PLAYING'
-            ) {
-                return;
-            }
+                this.keys[key] = true;
 
-            // ─────────────────────────────────────────
-            // WEAPON SWITCHING
-            // ─────────────────────────────────────────
 
-            if (e.key === '1') {
-                InventorySystem.switchSlot(
-                    this.inventory,
-                    0
-                );
-            }
-
-            if (e.key === '2') {
-                InventorySystem.switchSlot(
-                    this.inventory,
-                    1
-                );
-            }
-
-            if (e.key === '3') {
-                InventorySystem.switchSlot(
-                    this.inventory,
-                    2
-                );
-            }
-
-            // ─────────────────────────────────────────
-            // RELOAD
-            // ─────────────────────────────────────────
-
-            if (key === 'r') {
-
-                const weapon =
-                    InventorySystem.getActiveWeapon(
-                        this.inventory
-                    );
-
+                /*
+                 * Do not process gameplay controls
+                 * while the game is paused/menu/results.
+                 */
                 if (
-                    weapon &&
-                    InventorySystem.getAmmoReserve(
-                        this.inventory
-                    ) > 0
+                    typeof Game !== 'undefined' &&
+                    Game.state !== 'PLAYING'
                 ) {
+                    return;
+                }
 
-                    WeaponSystem.startReload(
-                        weapon
+
+                /* ---------------------------------------------
+                   WEAPON SLOTS
+                   --------------------------------------------- */
+
+                if (e.key === '1') {
+
+                    InventorySystem.switchSlot(
+                        this.inventory,
+                        0
                     );
                 }
-            }
 
-            // ─────────────────────────────────────────
-            // PICKUP
-            // ─────────────────────────────────────────
 
-            if (key === 'e') {
-                this._tryPickup();
-            }
+                if (e.key === '2') {
 
-            // ─────────────────────────────────────────
-            // HEAL
-            // ─────────────────────────────────────────
-
-            if (e.key === '4') {
-
-                if (
-                    InventorySystem.useHealItem(
+                    InventorySystem.switchSlot(
                         this.inventory,
-                        this.healthComp
-                    )
-                ) {
-                    AudioSystem.playHeal();
+                        1
+                    );
+                }
+
+
+                if (e.key === '3') {
+
+                    InventorySystem.switchSlot(
+                        this.inventory,
+                        2
+                    );
+                }
+
+
+                /* ---------------------------------------------
+                   RELOAD
+                   --------------------------------------------- */
+
+                if (key === 'r') {
+
+                    const weapon =
+                        InventorySystem.getActiveWeapon(
+                            this.inventory
+                        );
+
+
+                    if (
+                        weapon &&
+                        !weapon.isReloading &&
+                        weapon.currentAmmo <
+                            weapon.magSize &&
+                        InventorySystem.getAmmoReserve(
+                            this.inventory
+                        ) > 0
+                    ) {
+
+                        WeaponSystem.startReload(
+                            weapon
+                        );
+                    }
+                }
+
+
+                /* ---------------------------------------------
+                   PICKUP
+                   --------------------------------------------- */
+
+                if (key === 'e') {
+
+                    this._tryPickup();
+                }
+
+
+                /* ---------------------------------------------
+                   HEAL
+                   --------------------------------------------- */
+
+                if (e.key === '4') {
+
+                    if (
+                        InventorySystem.useHealItem(
+                            this.inventory,
+                            this.healthComp
+                        )
+                    ) {
+
+                        this._startHealAnimation();
+
+                        if (
+                            typeof AudioSystem !==
+                            'undefined' &&
+                            AudioSystem.playHeal
+                        ) {
+
+                            AudioSystem.playHeal();
+                        }
+                    }
+                }
+
+
+                /* ---------------------------------------------
+                   ARMOR
+                   --------------------------------------------- */
+
+                if (e.key === '5') {
+
+                    if (
+                        InventorySystem.useArmorItem(
+                            this.inventory,
+                            this.healthComp
+                        )
+                    ) {
+
+                        this._startHealAnimation();
+
+                        if (
+                            typeof AudioSystem !==
+                            'undefined' &&
+                            AudioSystem.playArmorPickup
+                        ) {
+
+                            AudioSystem.playArmorPickup();
+                        }
+                    }
+                }
+
+
+                /* ---------------------------------------------
+                   INVENTORY
+                   --------------------------------------------- */
+
+                if (e.key === 'Tab') {
+
+                    e.preventDefault();
+
+                    this.showInventory =
+                        !this.showInventory;
                 }
             }
+        );
 
-            // ─────────────────────────────────────────
-            // ARMOR
-            // ─────────────────────────────────────────
 
-            if (e.key === '5') {
+        /* -----------------------------------------------------
+           KEY UP
+           ----------------------------------------------------- */
 
-                if (
-                    InventorySystem.useArmorItem(
-                        this.inventory,
-                        this.healthComp
-                    )
-                ) {
-                    AudioSystem.playHeal();
-                }
+        window.addEventListener(
+            'keyup',
+            (e) => {
+
+                this.keys[
+                    e.key.toLowerCase()
+                ] = false;
             }
+        );
 
-            // ─────────────────────────────────────────
-            // INVENTORY
-            // ─────────────────────────────────────────
 
-            if (e.key === 'Tab') {
-
-                e.preventDefault();
-
-                this.showInventory =
-                    !this.showInventory;
-            }
-        });
-
-        // ─────────────────────────────────────────────
-        // KEY UP
-        // ─────────────────────────────────────────────
-
-        window.addEventListener('keyup', (e) => {
-
-            this.keys[
-                e.key.toLowerCase()
-            ] = false;
-        });
-
-        // ─────────────────────────────────────────────
-        // MOUSE MOVE
-        // ─────────────────────────────────────────────
+        /* -----------------------------------------------------
+           MOUSE MOVE
+           ----------------------------------------------------- */
 
         canvas.addEventListener(
             'mousemove',
             (e) => {
 
-                this.mouseX = e.clientX;
-                this.mouseY = e.clientY;
+                this.mouseX =
+                    e.clientX;
+
+                this.mouseY =
+                    e.clientY;
             }
         );
 
-        // ─────────────────────────────────────────────
-        // MOUSE DOWN
-        // ─────────────────────────────────────────────
+
+        /* -----------------------------------------------------
+           MOUSE DOWN
+           ----------------------------------------------------- */
 
         canvas.addEventListener(
             'mousedown',
@@ -348,49 +456,73 @@ const Player = {
 
                     this.mouseDown = true;
 
-                    AudioSystem.resume();
+                    if (
+                        typeof AudioSystem !==
+                        'undefined'
+                    ) {
+
+                        AudioSystem.resume();
+                    }
                 }
             }
         );
 
-        // ─────────────────────────────────────────────
-        // MOUSE UP
-        // ─────────────────────────────────────────────
+
+        /* -----------------------------------------------------
+           MOUSE UP
+           ----------------------------------------------------- */
 
         canvas.addEventListener(
             'mouseup',
             (e) => {
 
                 if (e.button === 0) {
+
                     this.mouseDown = false;
                 }
             }
         );
 
-        // If mouse leaves the browser window,
-        // prevent the weapon from staying stuck firing.
+
+        /* -----------------------------------------------------
+           BROWSER BLUR
+           ----------------------------------------------------- */
+
         window.addEventListener(
             'blur',
             () => {
+
                 this.mouseDown = false;
             }
         );
 
-        // Prevent context menu
+
+        /* -----------------------------------------------------
+           CONTEXT MENU
+           ----------------------------------------------------- */
+
         canvas.addEventListener(
             'contextmenu',
-            (e) => e.preventDefault()
+            (e) => {
+
+                e.preventDefault();
+            }
         );
     },
 
-    /**
-     * Try to pick up nearest loot.
-     */
+
+    /* =========================================================
+       PICKUP
+       ========================================================= */
+
     _tryPickup() {
 
-        if (!this.isAlive) {
+        if (
+            !this.isAlive
+        ) {
             return;
         }
+
 
         const nearest =
             LootSystem.findNearestPickup(
@@ -398,36 +530,342 @@ const Player = {
                 this.y
             );
 
-        if (nearest) {
 
-            const success =
-                InventorySystem.pickUpLoot(
-                    this.inventory,
-                    nearest,
-                    this.healthComp,
-                    this.x,
-                    this.y
-                );
-
-            if (success) {
-                LootSystem.pickUp(
-                    nearest.id
-                );
-            }
-        }
-    },
-
-    /**
-     * Update the player each frame.
-     */
-    update(dt) {
-
-        if (!this.isAlive) {
+        if (!nearest) {
             return;
         }
 
-        // Safety check:
-        // don't process player movement if paused.
+
+        const success =
+            InventorySystem.pickUpLoot(
+                this.inventory,
+                nearest,
+                this.healthComp,
+                this.x,
+                this.y
+            );
+
+
+        if (success) {
+
+            LootSystem.pickUp(
+                nearest.id
+            );
+        }
+    },
+
+
+    /* =========================================================
+       HEAL ANIMATION
+       ========================================================= */
+
+    _startHealAnimation() {
+
+        this.animationState =
+            'heal';
+
+        this.animationTime = 0;
+        this.animationFrame = 0;
+    },
+
+
+    /* =========================================================
+       PICKUP ANIMATION
+       ========================================================= */
+
+    _startPickupAnimation() {
+
+        this.pickupAnimationUntil =
+            Date.now() +
+            450;
+
+        this.pickupAnimationTime = 0;
+
+        this.animationState =
+            'loot';
+
+        this.animationTime = 0;
+        this.animationFrame = 0;
+    },
+
+
+    /* =========================================================
+       UPDATE ANIMATION STATE
+       ========================================================= */
+
+    _updateAnimation(
+        dt,
+        isMoving,
+        weapon
+    ) {
+
+        const now =
+            Date.now();
+
+
+        /*
+         * Death always has highest priority.
+         */
+        if (
+            !this.isAlive
+        ) {
+
+            this.animationState =
+                'death';
+
+            this.deathAnimationTime +=
+                dt;
+
+            this.animationTime +=
+                dt;
+
+            const speed =
+                AssetManager.getAnimationSpeed(
+                    'death'
+                );
+
+
+            this.animationFrame =
+                Math.floor(
+                    this.animationTime *
+                    speed
+                );
+
+
+            /*
+             * Do not loop the death animation.
+             */
+            const frameCount =
+                AssetManager.getAnimationFrameCount(
+                    'death'
+                );
+
+
+            this.animationFrame =
+                Math.min(
+                    this.animationFrame,
+                    frameCount - 1
+                );
+
+
+            return;
+        }
+
+
+        /*
+         * Pickup / loot animation.
+         */
+        if (
+            now <
+            this.pickupAnimationUntil
+        ) {
+
+            this.animationState =
+                'loot';
+
+            this.pickupAnimationTime +=
+                dt;
+
+            this.animationTime +=
+                dt;
+
+
+            const speed =
+                AssetManager.getAnimationSpeed(
+                    'loot'
+                );
+
+
+            const frameCount =
+                AssetManager.getAnimationFrameCount(
+                    'loot'
+                );
+
+
+            this.animationFrame =
+                Math.min(
+                    Math.floor(
+                        this.animationTime *
+                        speed
+                    ),
+                    frameCount - 1
+                );
+
+
+            return;
+        }
+
+
+        /*
+         * Hurt animation.
+         */
+        if (
+            now <
+            this.hurtAnimationUntil
+        ) {
+
+            this.animationState =
+                'hurt';
+
+            this.animationTime +=
+                dt;
+
+
+            const speed =
+                AssetManager.getAnimationSpeed(
+                    'hurt'
+                );
+
+
+            const frameCount =
+                AssetManager.getAnimationFrameCount(
+                    'hurt'
+                );
+
+
+            this.animationFrame =
+                Math.min(
+                    Math.floor(
+                        this.animationTime *
+                        speed
+                    ),
+                    frameCount - 1
+                );
+
+
+            return;
+        }
+
+
+        /*
+         * Reload has priority over shooting.
+         */
+        if (
+            weapon &&
+            weapon.isReloading
+        ) {
+
+            this.animationState =
+                'reload';
+        }
+
+
+        else if (
+            this.isShooting
+        ) {
+
+            this.animationState =
+                'shoot';
+        }
+
+
+        else if (
+            isMoving
+        ) {
+
+            /*
+             * Run animation when moving
+             * at high speed.
+             */
+            const velocity =
+                Math.sqrt(
+                    this.velocityX *
+                    this.velocityX +
+                    this.velocityY *
+                    this.velocityY
+                );
+
+
+            this.animationState =
+                velocity >
+                this.speed * 0.72
+                    ? 'run'
+                    : 'walk';
+        }
+
+
+        else {
+
+            this.animationState =
+                'idle';
+        }
+
+
+        /*
+         * Advance animation.
+         */
+        this.animationTime +=
+            dt;
+
+
+        const speed =
+            AssetManager.getAnimationSpeed(
+                this.animationState
+            );
+
+
+        const frameCount =
+            AssetManager.getAnimationFrameCount(
+                this.animationState
+            );
+
+
+        if (
+            this.animationState ===
+            'idle'
+        ) {
+
+            /*
+             * Idle loops continuously.
+             */
+            this.animationFrame =
+                Math.floor(
+                    this.animationTime *
+                    speed
+                ) %
+                frameCount;
+        }
+
+
+        else {
+
+            this.animationFrame =
+                Math.floor(
+                    this.animationTime *
+                    speed
+                ) %
+                frameCount;
+        }
+    },
+
+
+    /* =========================================================
+       UPDATE
+       ========================================================= */
+
+    update(dt) {
+
+        /*
+         * Keep death animation alive even after
+         * the player is eliminated.
+         */
+        if (
+            !this.isAlive
+        ) {
+
+            this._updateAnimation(
+                dt,
+                false,
+                null
+            );
+
+            return;
+        }
+
+
+        /*
+         * Do not update gameplay while paused.
+         */
         if (
             typeof Game !== 'undefined' &&
             Game.state !== 'PLAYING' &&
@@ -436,37 +874,48 @@ const Player = {
             return;
         }
 
-        // ─────────────────────────────────────────────
-        // MOVEMENT INPUT
-        // ─────────────────────────────────────────────
+
+        /* -----------------------------------------------------
+           MOVEMENT INPUT
+           ----------------------------------------------------- */
 
         let dx = 0;
         let dy = 0;
+
 
         if (this.keys['w']) {
             dy -= 1;
         }
 
+
         if (this.keys['s']) {
             dy += 1;
         }
+
 
         if (this.keys['a']) {
             dx -= 1;
         }
 
+
         if (this.keys['d']) {
             dx += 1;
         }
 
+
         const isMoving =
-            dx !== 0 || dy !== 0;
+            dx !== 0 ||
+            dy !== 0;
 
-        // ─────────────────────────────────────────────
-        // NORMALIZE DIAGONAL MOVEMENT
-        // ─────────────────────────────────────────────
 
-        if (dx !== 0 && dy !== 0) {
+        /* -----------------------------------------------------
+           NORMALIZE DIAGONAL MOVEMENT
+           ----------------------------------------------------- */
+
+        if (
+            dx !== 0 &&
+            dy !== 0
+        ) {
 
             const inv =
                 1 / Math.SQRT2;
@@ -475,30 +924,40 @@ const Player = {
             dy *= inv;
         }
 
-        // ─────────────────────────────────────────────
-        // MOVEMENT DIRECTION
-        // ─────────────────────────────────────────────
+
+        /* -----------------------------------------------------
+           MOVEMENT DIRECTION
+           ----------------------------------------------------- */
 
         if (isMoving) {
 
             this.movementAngle =
-                Math.atan2(dy, dx);
+                Math.atan2(
+                    dy,
+                    dx
+                );
         }
 
-        // ─────────────────────────────────────────────
-        // SMOOTH ACCELERATION
-        // ─────────────────────────────────────────────
+
+        /* -----------------------------------------------------
+           ACCELERATION
+           ----------------------------------------------------- */
 
         const targetVelocityX =
-            dx * this.speed;
+            dx *
+            this.speed;
+
 
         const targetVelocityY =
-            dy * this.speed;
+            dy *
+            this.speed;
+
 
         const acceleration =
             isMoving
                 ? 12
                 : 18;
+
 
         this.velocityX +=
             (
@@ -510,6 +969,7 @@ const Player = {
                 1
             );
 
+
         this.velocityY +=
             (
                 targetVelocityY -
@@ -520,19 +980,23 @@ const Player = {
                 1
             );
 
-        // ─────────────────────────────────────────────
-        // APPLY MOVEMENT
-        // ─────────────────────────────────────────────
+
+        /* -----------------------------------------------------
+           APPLY MOVEMENT
+           ----------------------------------------------------- */
 
         const newX =
             this.x +
-            this.velocityX * dt;
+            this.velocityX *
+            dt;
+
 
         const newY =
             this.y +
-            this.velocityY * dt;
+            this.velocityY *
+            dt;
 
-        // Wall collision
+
         const push =
             MapSystem.resolveCollision(
                 newX,
@@ -540,49 +1004,73 @@ const Player = {
                 this.radius
             );
 
+
         this.x =
             Utils.clamp(
                 newX + push.x,
                 this.radius,
-                GAME.MAP_WIDTH - this.radius
+                GAME.MAP_WIDTH -
+                    this.radius
             );
+
 
         this.y =
             Utils.clamp(
                 newY + push.y,
                 this.radius,
-                GAME.MAP_HEIGHT - this.radius
+                GAME.MAP_HEIGHT -
+                    this.radius
             );
 
-        // ─────────────────────────────────────────────
-        // FOOTSTEP SOUND
-        // ─────────────────────────────────────────────
+
+        /* -----------------------------------------------------
+           FOOTSTEPS
+           ----------------------------------------------------- */
 
         if (isMoving) {
 
-            this.footstepTimer -= dt;
+            this.footstepTimer -=
+                dt;
 
-            if (this.footstepTimer <= 0) {
 
-                AudioSystem.playFootstep();
+            if (
+                this.footstepTimer <= 0
+            ) {
 
-                // Time between footsteps
-                this.footstepTimer = 0.28;
+                if (
+                    typeof AudioSystem !==
+                    'undefined' &&
+                    AudioSystem.playFootstep
+                ) {
+
+                    AudioSystem.playFootstep();
+                }
+
+
+                this.footstepTimer =
+                    this.animationState === 'run'
+                        ? 0.24
+                        : 0.30;
             }
-        } else {
+        }
+
+
+        else {
 
             this.footstepTimer = 0;
         }
 
-        // ─────────────────────────────────────────────
-        // AIM
-        // ─────────────────────────────────────────────
+
+        /* -----------------------------------------------------
+           AIM
+           ----------------------------------------------------- */
 
         const worldMouse =
             CameraSystem.screenToWorld(
                 this.mouseX,
                 this.mouseY
             );
+
 
         this.aimAngle =
             Utils.angleBetween(
@@ -592,14 +1080,16 @@ const Player = {
                 worldMouse.y
             );
 
-        // ─────────────────────────────────────────────
-        // WEAPON UPDATE
-        // ─────────────────────────────────────────────
+
+        /* -----------------------------------------------------
+           WEAPON
+           ----------------------------------------------------- */
 
         const weapon =
             InventorySystem.getActiveWeapon(
                 this.inventory
             );
+
 
         if (weapon) {
 
@@ -612,7 +1102,10 @@ const Player = {
                     )
                 );
 
-            if (ammoConsumed > 0) {
+
+            if (
+                ammoConsumed > 0
+            ) {
 
                 InventorySystem.consumeAmmo(
                     this.inventory,
@@ -621,18 +1114,21 @@ const Player = {
                 );
             }
 
-            // ─────────────────────────────────────────
-            // SHOOTING
-            // ─────────────────────────────────────────
+
+            /* ---------------------------------------------
+               SHOOTING
+               --------------------------------------------- */
 
             if (
                 this.mouseDown &&
-                !this.showInventory
+                !this.showInventory &&
+                !weapon.isReloading
             ) {
 
                 const shouldFire =
                     weapon.auto ||
                     !this.isShooting;
+
 
                 if (shouldFire) {
 
@@ -645,6 +1141,7 @@ const Player = {
                             dt
                         );
 
+
                     if (bullets) {
 
                         ProjectileSystem.addBullets(
@@ -652,27 +1149,33 @@ const Player = {
                             this.id
                         );
 
-                        // Visual recoil
+
                         this.recoilAmount =
                             Math.min(
-                                this.recoilAmount + 0.8,
+                                this.recoilAmount +
+                                0.8,
                                 4
                             );
+
 
                         this.weaponKick = 5;
                     }
                 }
 
-                this.isShooting = true;
 
-            } else {
+                this.isShooting = true;
+            }
+
+
+            else {
 
                 this.isShooting = false;
             }
 
-            // ─────────────────────────────────────────
-            // AUTO RELOAD
-            // ─────────────────────────────────────────
+
+            /* ---------------------------------------------
+               AUTO RELOAD
+               --------------------------------------------- */
 
             if (
                 weapon.currentAmmo <= 0 &&
@@ -688,9 +1191,16 @@ const Player = {
             }
         }
 
-        // ─────────────────────────────────────────────
-        // RECOIL RECOVERY
-        // ─────────────────────────────────────────────
+
+        else {
+
+            this.isShooting = false;
+        }
+
+
+        /* -----------------------------------------------------
+           RECOIL RECOVERY
+           ----------------------------------------------------- */
 
         this.recoilAmount =
             Math.max(
@@ -699,6 +1209,7 @@ const Player = {
                 dt * 5
             );
 
+
         this.weaponKick =
             Math.max(
                 0,
@@ -706,58 +1217,21 @@ const Player = {
                 dt * 25
             );
 
-        // ─────────────────────────────────────────────
-        // ANIMATION STATE
-        // ─────────────────────────────────────────────
 
-        if (weapon && weapon.isReloading) {
+        /* -----------------------------------------------------
+           ANIMATION
+           ----------------------------------------------------- */
 
-            this.animationState = 'reload';
+        this._updateAnimation(
+            dt,
+            isMoving,
+            weapon
+        );
 
-        } else if (this.isShooting) {
 
-            this.animationState = 'shoot';
-
-        } else if (isMoving) {
-
-            this.animationState = 'walk';
-
-        } else {
-
-            this.animationState = 'idle';
-        }
-
-        // ─────────────────────────────────────────────
-        // ANIMATION TIMER
-        // ─────────────────────────────────────────────
-
-        if (
-            this.animationState !== 'idle'
-        ) {
-
-            this.animationTime += dt;
-
-            // Faster animation while moving
-            const frameRate =
-                this.animationState === 'walk'
-                    ? 10
-                    : 14;
-
-            this.animationFrame =
-                Math.floor(
-                    this.animationTime *
-                    frameRate
-                ) % 4;
-
-        } else {
-
-            this.animationTime = 0;
-            this.animationFrame = 0;
-        }
-
-        // ─────────────────────────────────────────────
-        // DAMAGE FROM BULLETS
-        // ─────────────────────────────────────────────
+        /* -----------------------------------------------------
+           PROJECTILE DAMAGE
+           ----------------------------------------------------- */
 
         const hitInfo =
             ProjectileSystem.checkHits(
@@ -767,95 +1241,207 @@ const Player = {
                 this.id
             );
 
-        if (hitInfo.damage > 0) {
+
+        if (
+            hitInfo.damage > 0
+        ) {
 
             HealthSystem.takeDamage(
                 this.healthComp,
                 hitInfo.damage
             );
 
-            AudioSystem.playHit();
 
-            VFXSystem.spawnHitEffect(
-                this.x,
-                this.y
-            );
+            this.hurtAnimationUntil =
+                Date.now() +
+                250;
 
-            VFXSystem.addDamageNumber(
-                this.x,
-                this.y,
-                hitInfo.damage,
-                true
-            );
 
-            CameraSystem.shake(
-                4 + hitInfo.damage * 0.1,
-                0.15
-            );
+            if (
+                typeof AudioSystem !==
+                'undefined' &&
+                AudioSystem.playHit
+            ) {
 
-            // ─────────────────────────────────────────
-            // PLAYER DEATH
-            // ─────────────────────────────────────────
+                AudioSystem.playHit();
+            }
 
-            if (!this.healthComp.alive) {
 
-                this.isAlive = false;
+            if (
+                typeof VFXSystem !==
+                'undefined'
+            ) {
 
-                this.killedBy =
-                    hitInfo.lastHitBy;
-
-                VFXSystem.spawnElimination(
+                VFXSystem.spawnHitEffect(
                     this.x,
                     this.y
                 );
 
-                CameraSystem.shake(
-                    12,
-                    0.4
+
+                VFXSystem.addDamageNumber(
+                    this.x,
+                    this.y,
+                    hitInfo.damage,
+                    true
                 );
+            }
+
+
+            if (
+                typeof CameraSystem !==
+                'undefined'
+            ) {
+
+                CameraSystem.shake(
+                    4 +
+                    hitInfo.damage * 0.1,
+                    0.15
+                );
+            }
+
+
+            /* ---------------------------------------------
+               PLAYER DEATH
+               --------------------------------------------- */
+
+            if (
+                !this.healthComp.alive
+            ) {
+
+                this.isAlive =
+                    false;
+
+                this.killedBy =
+                    hitInfo.lastHitBy;
+
+
+                this.velocityX = 0;
+                this.velocityY = 0;
+
+                this.mouseDown = false;
+
+
+                this.animationState =
+                    'death';
+
+                this.animationTime = 0;
+                this.animationFrame = 0;
+
+                this.deathAnimationTime = 0;
+
+                this.deathAnimationUntil =
+                    Date.now() +
+                    1200;
+
+
+                if (
+                    typeof VFXSystem !==
+                    'undefined'
+                ) {
+
+                    VFXSystem.spawnElimination(
+                        this.x,
+                        this.y
+                    );
+                }
+
+
+                if (
+                    typeof CameraSystem !==
+                    'undefined'
+                ) {
+
+                    CameraSystem.shake(
+                        12,
+                        0.4
+                    );
+                }
             }
         }
     },
 
-    /**
-     * Render the player.
-     */
+
+    /* =========================================================
+       RENDER
+       ========================================================= */
+
     render(ctx) {
 
-        if (!this.isAlive) {
+        /*
+         * Unlike the old version, dead players are NOT
+         * immediately invisible. The death animation gets
+         * a chance to play.
+         */
+        if (
+            !this.isAlive &&
+            this.animationState !== 'death'
+        ) {
             return;
         }
 
-        const x = this.x;
-        const y = this.y;
+
+        const x =
+            this.x;
+
+
+        const y =
+            this.y;
+
 
         const angle =
             this.aimAngle;
 
-        const weapon =
-            InventorySystem.getActiveWeapon(
-                this.inventory
-            );
 
-        // ─────────────────────────────────────────────
-        // ANIMATION BOB
-        // ─────────────────────────────────────────────
+        const weapon =
+            this.inventory
+                ? InventorySystem.getActiveWeapon(
+                    this.inventory
+                )
+                : null;
+
+
+        /* -----------------------------------------------------
+           ANIMATION BOB
+           ----------------------------------------------------- */
 
         let bob = 0;
 
+
         if (
-            this.animationState === 'walk'
+            this.animationState === 'walk' ||
+            this.animationState === 'run'
         ) {
+
+            const bobAmount =
+                this.animationState === 'run'
+                    ? 2.0
+                    : 1.35;
+
 
             bob =
                 Math.sin(
-                    this.animationTime * 18
-                ) * 1.5;
+                    this.animationTime *
+                    (
+                        this.animationState === 'run'
+                            ? 20
+                            : 17
+                    )
+                ) *
+                bobAmount;
         }
 
-        // ─────────────────────────────────────────────
-        // DROP SHADOW
-        // ─────────────────────────────────────────────
+
+        /* -----------------------------------------------------
+           DROP SHADOW
+           ----------------------------------------------------- */
+
+        ctx.save();
+
+        ctx.globalAlpha =
+            this.isAlive
+                ? 1
+                : 0.55;
+
 
         ctx.beginPath();
 
@@ -869,205 +1455,276 @@ const Player = {
             Math.PI * 2
         );
 
+
         ctx.fillStyle =
             'rgba(0, 0, 0, 0.35)';
 
         ctx.fill();
 
-        // ─────────────────────────────────────────────
-        // WEAPON RECOIL
-        // ─────────────────────────────────────────────
+        ctx.restore();
 
-        const recoilOffset =
-            this.recoilAmount;
 
-        const barrelLen =
-            weapon
-                ? 22
-                : 16;
+        /*
+         * Do not draw the gameplay weapon over the
+         * soldier during reload/loot/heal/death.
+         * Those animations should visually own the character.
+         */
 
-        const barrelColor =
-            weapon
-                ? weapon.rarityColor
-                : '#ffffff';
+        const showWeapon =
+            !!weapon &&
+            this.animationState !== 'reload' &&
+            this.animationState !== 'loot' &&
+            this.animationState !== 'heal' &&
+            this.animationState !== 'death';
 
-        const weaponStart =
-            this.radius * 0.5;
 
-        const weaponEnd =
-            this.radius +
-            barrelLen -
-            recoilOffset;
+        /* -----------------------------------------------------
+           WEAPON
+           ----------------------------------------------------- */
 
-        const gx1 =
-            x +
-            Math.cos(angle) *
-            weaponStart;
+        if (showWeapon) {
 
-        const gy1 =
-            y +
-            bob +
-            Math.sin(angle) *
-            weaponStart;
+            const recoilOffset =
+                this.recoilAmount;
 
-        const gx2 =
-            x +
-            Math.cos(angle) *
-            weaponEnd;
 
-        const gy2 =
-            y +
-            bob +
-            Math.sin(angle) *
-            weaponEnd;
+            const barrelLen =
+                weapon
+                    ? 22
+                    : 16;
 
-        // Outer barrel
-        ctx.beginPath();
 
-        ctx.moveTo(
-            gx1,
-            gy1
-        );
+            const barrelColor =
+                weapon.rarityColor ||
+                '#ffffff';
 
-        ctx.lineTo(
-            gx2,
-            gy2
-        );
 
-        ctx.strokeStyle =
-            '#222';
+            const weaponStart =
+                this.radius *
+                0.5;
 
-        ctx.lineWidth = 5;
 
-        ctx.stroke();
+            const weaponEnd =
+                this.radius +
+                barrelLen -
+                recoilOffset;
 
-        // Inner barrel
-        ctx.beginPath();
 
-        ctx.moveTo(
-            gx1,
-            gy1
-        );
+            const gx1 =
+                x +
+                Math.cos(angle) *
+                weaponStart;
 
-        ctx.lineTo(
-            gx2,
-            gy2
-        );
 
-        ctx.strokeStyle =
-            barrelColor;
-
-        ctx.lineWidth = 2.5;
-
-        ctx.stroke();
-
-        // ─────────────────────────────────────────────
-        // HANDS HOLDING WEAPON
-        // ─────────────────────────────────────────────
-
-        const handOffsetDist =
-            this.radius + 6;
-
-        const leftHandAngle =
-            angle - 0.45;
-
-        const rightHandAngle =
-            angle + 0.45;
-
-        // Left hand
-        ctx.beginPath();
-
-        ctx.arc(
-            x +
-                Math.cos(leftHandAngle) *
-                handOffsetDist,
-
-            y +
+            const gy1 =
+                y +
                 bob +
-                Math.sin(leftHandAngle) *
-                handOffsetDist,
+                Math.sin(angle) *
+                weaponStart;
 
-            4,
-            0,
-            Math.PI * 2
-        );
 
-        ctx.fillStyle =
-            '#ffcc80';
+            const gx2 =
+                x +
+                Math.cos(angle) *
+                weaponEnd;
 
-        ctx.fill();
 
-        ctx.strokeStyle =
-            '#111';
-
-        ctx.lineWidth = 1;
-
-        ctx.stroke();
-
-        // Right hand
-        ctx.beginPath();
-
-        ctx.arc(
-            x +
-                Math.cos(rightHandAngle) *
-                handOffsetDist,
-
-            y +
+            const gy2 =
+                y +
                 bob +
-                Math.sin(rightHandAngle) *
-                handOffsetDist,
+                Math.sin(angle) *
+                weaponEnd;
 
-            4,
-            0,
-            Math.PI * 2
-        );
 
-        ctx.fillStyle =
-            '#ffcc80';
+            ctx.beginPath();
 
-        ctx.fill();
-
-        ctx.strokeStyle =
-            '#111';
-
-        ctx.lineWidth = 1;
-
-        ctx.stroke();
-
-        // ─────────────────────────────────────────────
-        // CHARACTER SPRITE
-        // ─────────────────────────────────────────────
-
-        const drawn =
-            AssetManager.drawTopDownCharacter(
-                ctx,
-                0,
-                x,
-                y + bob,
-                this.radius * 2.6,
-                angle
+            ctx.moveTo(
+                gx1,
+                gy1
             );
 
-        // ─────────────────────────────────────────────
-        // FALLBACK CHARACTER
-        // ─────────────────────────────────────────────
+            ctx.lineTo(
+                gx2,
+                gy2
+            );
 
-        if (!drawn) {
+
+            ctx.strokeStyle =
+                '#222';
+
+            ctx.lineWidth = 5;
+
+            ctx.stroke();
+
+
+            ctx.beginPath();
+
+            ctx.moveTo(
+                gx1,
+                gy1
+            );
+
+            ctx.lineTo(
+                gx2,
+                gy2
+            );
+
+
+            ctx.strokeStyle =
+                barrelColor;
+
+            ctx.lineWidth = 2.5;
+
+            ctx.stroke();
+
+
+            /* ---------------------------------------------
+               HANDS
+               --------------------------------------------- */
+
+            const handOffsetDist =
+                this.radius + 6;
+
+
+            const leftHandAngle =
+                angle - 0.45;
+
+
+            const rightHandAngle =
+                angle + 0.45;
+
 
             ctx.beginPath();
 
             ctx.arc(
+                x +
+                    Math.cos(
+                        leftHandAngle
+                    ) *
+                    handOffsetDist,
+
+                y +
+                    bob +
+                    Math.sin(
+                        leftHandAngle
+                    ) *
+                    handOffsetDist,
+
+                4,
+                0,
+                Math.PI * 2
+            );
+
+
+            ctx.fillStyle =
+                '#ffcc80';
+
+            ctx.fill();
+
+
+            ctx.strokeStyle =
+                '#111';
+
+            ctx.lineWidth = 1;
+
+            ctx.stroke();
+
+
+            ctx.beginPath();
+
+            ctx.arc(
+                x +
+                    Math.cos(
+                        rightHandAngle
+                    ) *
+                    handOffsetDist,
+
+                y +
+                    bob +
+                    Math.sin(
+                        rightHandAngle
+                    ) *
+                    handOffsetDist,
+
+                4,
+                0,
+                Math.PI * 2
+            );
+
+
+            ctx.fillStyle =
+                '#ffcc80';
+
+            ctx.fill();
+
+
+            ctx.strokeStyle =
+                '#111';
+
+            ctx.lineWidth = 1;
+
+            ctx.stroke();
+        }
+
+
+        /* -----------------------------------------------------
+           SOLDIER SPRITE
+           ----------------------------------------------------- */
+
+        const drawn =
+            AssetManager.drawTopDownCharacter(
+                ctx,
+
+                0,
+
                 x,
                 y + bob,
+
+                this.radius * 2.6,
+
+                angle,
+
+                this.animationState,
+
+                this.animationFrame
+            );
+
+
+        /* -----------------------------------------------------
+           FALLBACK
+           ----------------------------------------------------- */
+
+        if (!drawn) {
+
+            ctx.save();
+
+            ctx.translate(
+                x,
+                y + bob
+            );
+
+            ctx.rotate(angle);
+
+
+            ctx.beginPath();
+
+            ctx.arc(
+                0,
+                0,
                 this.radius,
                 0,
                 Math.PI * 2
             );
 
+
             ctx.fillStyle =
-                GAME.COLORS.PLAYER;
+                this.isAlive
+                    ? GAME.COLORS.PLAYER
+                    : GAME.COLORS.DEAD_ENTITY;
+
 
             ctx.fill();
+
 
             ctx.strokeStyle =
                 GAME.COLORS.PLAYER_OUTLINE;
@@ -1076,49 +1733,39 @@ const Player = {
 
             ctx.stroke();
 
-            // Vest / inner detail
-            ctx.beginPath();
 
-            ctx.arc(
-                x,
-                y + bob,
-                this.radius * 0.6,
-                0,
-                Math.PI * 2
-            );
-
-            ctx.fillStyle =
-                this.healthComp.armor > 0
-                    ? 'rgba(0, 229, 255, 0.4)'
-                    : 'rgba(255, 255, 255, 0.15)';
-
-            ctx.fill();
+            ctx.restore();
         }
 
-        // ─────────────────────────────────────────────
-        // SHOOT MUZZLE EFFECT
-        // ─────────────────────────────────────────────
+
+        /* -----------------------------------------------------
+           MUZZLE FLASH
+           ----------------------------------------------------- */
 
         if (
+            this.isAlive &&
             this.isShooting &&
             this.weaponKick > 0
         ) {
 
             const muzzleDistance =
                 this.radius +
-                barrelLen -
-                recoilOffset;
+                22 -
+                this.recoilAmount;
+
 
             const muzzleX =
                 x +
                 Math.cos(angle) *
                 muzzleDistance;
 
+
             const muzzleY =
                 y +
                 bob +
                 Math.sin(angle) *
                 muzzleDistance;
+
 
             ctx.save();
 
@@ -1129,9 +1776,13 @@ const Player = {
 
             ctx.rotate(angle);
 
+
             ctx.beginPath();
 
-            ctx.moveTo(0, 0);
+            ctx.moveTo(
+                0,
+                0
+            );
 
             ctx.lineTo(
                 14,
@@ -1150,6 +1801,7 @@ const Player = {
 
             ctx.closePath();
 
+
             ctx.fillStyle =
                 'rgba(255, 220, 80, 0.8)';
 
@@ -1158,102 +1810,128 @@ const Player = {
             ctx.restore();
         }
 
-        // ─────────────────────────────────────────────
-        // HEALTH & ARMOR BARS
-        // ─────────────────────────────────────────────
 
-        const barW = 32;
-        const barH = 4;
+        /* -----------------------------------------------------
+           HEALTH / ARMOR
+           ----------------------------------------------------- */
 
-        const barX =
-            x -
-            barW / 2;
-
-        const barY =
-            y -
-            this.radius -
-            14;
-
-        // Background
-        ctx.fillStyle =
-            'rgba(0,0,0,0.6)';
-
-        ctx.fillRect(
-            barX - 1,
-            barY - 1,
-            barW + 2,
-            barH + 2
-        );
-
-        // Health
-        const hp =
-            HealthSystem.healthPercent(
-                this.healthComp
-            );
-
-        ctx.fillStyle =
-            hp > 0.3
-                ? GAME.COLORS.HEALTH_BAR
-                : GAME.COLORS.HEALTH_BAR_LOW;
-
-        ctx.fillRect(
-            barX,
-            barY,
-            barW * hp,
-            barH
-        );
-
-        // Armor
         if (
-            this.healthComp.armor > 0
+            this.isAlive
         ) {
+
+            const barW = 32;
+            const barH = 4;
+
+
+            const barX =
+                x -
+                barW / 2;
+
+
+            const barY =
+                y -
+                this.radius -
+                14;
+
 
             ctx.fillStyle =
                 'rgba(0,0,0,0.6)';
 
+
             ctx.fillRect(
                 barX - 1,
-                barY - 7,
+                barY - 1,
                 barW + 2,
                 barH + 2
             );
 
+
+            const hp =
+                HealthSystem.healthPercent(
+                    this.healthComp
+                );
+
+
             ctx.fillStyle =
-                GAME.COLORS.ARMOR_BAR;
+                hp > 0.3
+                    ? GAME.COLORS.HEALTH_BAR
+                    : GAME.COLORS.HEALTH_BAR_LOW;
+
 
             ctx.fillRect(
                 barX,
-                barY - 6,
-                barW *
-                    HealthSystem.armorPercent(
-                        this.healthComp
-                    ),
+                barY,
+                barW * hp,
                 barH
             );
+
+
+            if (
+                this.healthComp.armor > 0
+            ) {
+
+                ctx.fillStyle =
+                    'rgba(0,0,0,0.6)';
+
+
+                ctx.fillRect(
+                    barX - 1,
+                    barY - 7,
+                    barW + 2,
+                    barH + 2
+                );
+
+
+                ctx.fillStyle =
+                    GAME.COLORS.ARMOR_BAR;
+
+
+                ctx.fillRect(
+                    barX,
+                    barY - 6,
+                    barW *
+                        HealthSystem.armorPercent(
+                            this.healthComp
+                        ),
+                    barH
+                );
+            }
         }
     },
 
-    /**
-     * Render crosshair on screen.
-     */
+
+    /* =========================================================
+       CROSSHAIR
+       ========================================================= */
+
     renderCrosshair(ctx) {
 
-        if (!this.isAlive) {
+        if (
+            !this.isAlive
+        ) {
             return;
         }
 
-        const cx = this.mouseX;
-        const cy = this.mouseY;
+
+        const cx =
+            this.mouseX;
+
+
+        const cy =
+            this.mouseY;
+
 
         const size = 12;
         const gap = 5;
+
 
         ctx.strokeStyle =
             'rgba(255, 255, 255, 0.8)';
 
         ctx.lineWidth = 1.5;
 
-        // Top
+
+        /* Top */
         ctx.beginPath();
 
         ctx.moveTo(
@@ -1268,7 +1946,8 @@ const Player = {
 
         ctx.stroke();
 
-        // Bottom
+
+        /* Bottom */
         ctx.beginPath();
 
         ctx.moveTo(
@@ -1283,7 +1962,8 @@ const Player = {
 
         ctx.stroke();
 
-        // Left
+
+        /* Left */
         ctx.beginPath();
 
         ctx.moveTo(
@@ -1298,7 +1978,8 @@ const Player = {
 
         ctx.stroke();
 
-        // Right
+
+        /* Right */
         ctx.beginPath();
 
         ctx.moveTo(
@@ -1313,7 +1994,8 @@ const Player = {
 
         ctx.stroke();
 
-        // Center dot
+
+        /* Center */
         ctx.beginPath();
 
         ctx.arc(
@@ -1324,9 +2006,10 @@ const Player = {
             Math.PI * 2
         );
 
+
         ctx.fillStyle =
             'rgba(255, 255, 255, 0.9)';
 
         ctx.fill();
-    },
+    }
 };
